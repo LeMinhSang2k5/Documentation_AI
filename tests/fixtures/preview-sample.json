@@ -1,0 +1,49 @@
+{
+  "job_id": "doc_job_preview_fixture",
+  "status": "done",
+  "commit_sha": "a1b2c3d4",
+  "code_map": [
+    {
+      "node_id": "fn_auth_login",
+      "name": "AuthService.login",
+      "file_path": "src/services/auth.ts",
+      "start_line": 24,
+      "end_line": 58,
+      "calls": ["fn_user_find", "fn_jwt_sign"]
+    },
+    {
+      "node_id": "fn_user_find",
+      "name": "UserRepository.findByEmail",
+      "file_path": "src/repositories/user.ts",
+      "start_line": 10,
+      "end_line": 22,
+      "calls": []
+    },
+    {
+      "node_id": "fn_jwt_sign",
+      "name": "signToken",
+      "file_path": "src/utils/jwt.ts",
+      "start_line": 5,
+      "end_line": 18,
+      "calls": ["fn_missing_helper"]
+    }
+  ],
+  "documents": [
+    {
+      "doc_id": "doc_overview",
+      "title": "Tổng quan kiến trúc",
+      "path": "overview.md",
+      "markdown": "# Tổng quan\n\nDự án gồm module [Xác thực](modules/auth.md) và [Thanh toán](modules/payment.md).\n\n## Luồng chính\n\n```mermaid\nflowchart LR\n  Client --> API[\"API <b>Gateway</b>\"] --> Auth\n```\n\nHàm `AuthService.login()` gọi `signToken()`.\n",
+      "mermaid_diagram": "flowchart TD\n  fn_auth_login[\"AuthService.login\"] --> fn_user_find[\"findByEmail\"]\n  fn_auth_login --> fn_jwt_sign[\"signToken\"]",
+      "source_node_ids": ["fn_auth_login"]
+    },
+    {
+      "doc_id": "doc_auth_module",
+      "title": "Xác thực người dùng (Auth Module)",
+      "path": "modules/auth.md",
+      "markdown": "## Luồng đăng nhập\n\n#### Chi tiết\n\n`AuthService.login()` gọi `hashPassword()` rồi `UserRepository.findByEmail()`.\n\n<script>alert('xss')</script>\n\nQuay lại [tổng quan](../overview.md).\n\n```ts\nconst x = 1;\n",
+      "mermaid_diagram": "```mermaid\nsequenceDiagram\n  participant C as Client\n  C->>: login\n```",
+      "source_node_ids": ["fn_auth_login", "fn_jwt_sign", "fn_ghost"]
+    }
+  ]
+}

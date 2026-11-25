@@ -22,3 +22,7 @@ doc/week1/
 # Logs & OS files
 *.log
 .DS_Store
+
+# Preview
+preview.html
+.preview/

@@ -2,7 +2,7 @@ import "dotenv/config";
 import path from "node:path";
 import { pathToFileURL } from "node:url";
 import express, { type ErrorRequestHandler, type Express } from "express";
-import { MockJobQueue, type JobQueue } from "./api/jobQueue.js";
+import { TreeSitterJobQueue, type JobQueue } from "./api/jobQueue.js";
 import { createDocsRouter } from "./api/routes.js";
 import { LocalFileStorage } from "./storage/fileStorage.js";
 import { SupabaseJobStore, type JobStore } from "./storage/jobStore.js";
@@ -66,7 +66,7 @@ function startServer(): void {
   const supabaseClient = createSupabaseAdminClient();
   const fileStorage = new LocalFileStorage();
   const jobStore = new SupabaseJobStore(supabaseClient, fileStorage);
-  const jobQueue = new MockJobQueue(jobStore, fileStorage);
+  const jobQueue = new TreeSitterJobQueue(jobStore, fileStorage);
 
   const app = createApp(jobStore, jobQueue);
 

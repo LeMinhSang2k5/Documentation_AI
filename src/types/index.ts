@@ -76,3 +76,30 @@ export type JobPatch = Partial<
     | "error"
   >
 >;
+
+// --- Parser Types (Tree-sitter -> code_map contract) ---
+
+export interface ParsedFunction {
+  name: string;
+  kind: "function" | "method" | "arrow_function";
+  class_name?: string;
+  start_line: number;
+  end_line: number;
+  params: string[];
+  is_exported: boolean;
+  raw_calls: string[];
+}
+
+export interface ParsedImport {
+  source: string;
+  imported_names: string[];
+  default_import?: string;
+  namespace_import?: string;
+}
+
+export interface ParsedFile {
+  file_path: string;
+  has_syntax_error: boolean;
+  imports: ParsedImport[];
+  functions: ParsedFunction[];
+}

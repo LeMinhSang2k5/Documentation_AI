@@ -8,12 +8,15 @@
     "dev": "tsx watch src/index.ts",
     "start": "tsx src/index.ts",
     "typecheck": "tsc --noEmit",
-    "test:api": "tsx tests/run-verify.ts"
+    "test:api": "tsx tests/run-verify.ts",
+    "parse:sample": "tsx tests/sample-parse.ts"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.49.0",
     "dotenv": "^16.4.7",
     "express": "^4.21.2",
+    "tree-sitter-wasms": "^0.1.13",
+    "web-tree-sitter": "0.25.10",
     "zod": "^3.24.2"
   },
   "devDependencies": {

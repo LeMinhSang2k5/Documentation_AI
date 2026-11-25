@@ -1,0 +1,279 @@
+{
+  "info": {
+    "_postman_id": "21a0c0de-2026-4d0c-9a21-000000000001",
+    "name": "Nhóm 2.1 - Code Documentation Generator HTTP API",
+    "description": "Bộ test Postman Tuần 1 cho 2 HTTP API của Nhóm 2.1.\n\nHướng dẫn trước khi bấm Send:\n1. Chạy `npm run dev` ở terminal.\n2. Bấm vào tên Collection -> tab **Variables** -> dán giá trị `API_KEY` trong file `.env` của bạn vào cột **Current value** của biến `api_key` -> bấm **Save**.\n3. Chạy TC3 (`POST /analyze`), Postman sẽ tự động lưu `job_id` vào biến `{{job_id}}` để bạn bấm chạy tiếp TC4/TC5 ngay!",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "base_url",
+      "value": "http://localhost:3000",
+      "type": "string"
+    },
+    {
+      "key": "api_key",
+      "value": "<dan-API_KEY-trong-.env-vao-day>",
+      "type": "string"
+    },
+    {
+      "key": "job_id",
+      "value": "doc_job_2026_001",
+      "type": "string"
+    },
+    {
+      "key": "repo_url",
+      "value": "https://github.com/LeMinhSang2k5/TodoAppCloud",
+      "type": "string"
+    },
+    {
+      "key": "branch",
+      "value": "main",
+      "type": "string"
+    },
+    {
+      "key": "commit_sha",
+      "value": "58629bb3d8713716511c1c59263c3f8c86816474",
+      "type": "string"
+    }
+  ],
+  "item": [
+    {
+      "name": "TC1 - Thiếu X-API-Key (401)",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Status code is 401 Unauthorized', function () {",
+              "  pm.response.to.have.status(401);",
+              "});",
+              "pm.test('Error code is UNAUTHORIZED', function () {",
+              "  const body = pm.response.json();",
+              "  pm.expect(body.error.code).to.eql('UNAUTHORIZED');",
+              "});"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{base_url}}/api/v1/docs/jobs/doc_job_test",
+          "host": ["{{base_url}}"],
+          "path": ["api", "v1", "docs", "jobs", "doc_job_test"]
+        }
+      }
+    },
+    {
+      "name": "TC1b - Sai X-API-Key (401)",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Status code is 401 Unauthorized', function () {",
+              "  pm.response.to.have.status(401);",
+              "});",
+              "pm.test('Error code is UNAUTHORIZED', function () {",
+              "  const body = pm.response.json();",
+              "  pm.expect(body.error.code).to.eql('UNAUTHORIZED');",
+              "});"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "X-API-Key",
+            "value": "wrong-api-key",
+            "type": "text"
+          }
+        ],
+        "url": {
+          "raw": "{{base_url}}/api/v1/docs/jobs/doc_job_test",
+          "host": ["{{base_url}}"],
+          "path": ["api", "v1", "docs", "jobs", "doc_job_test"]
+        }
+      }
+    },
+    {
+      "name": "TC2 - Chặn SSRF / URL không phải GitHub (400)",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Status code is 400 Bad Request', function () {",
+              "  pm.response.to.have.status(400);",
+              "});",
+              "pm.test('Error code is INVALID_INPUT', function () {",
+              "  const body = pm.response.json();",
+              "  pm.expect(body.error.code).to.eql('INVALID_INPUT');",
+              "});"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json",
+            "type": "text"
+          },
+          {
+            "key": "X-API-Key",
+            "value": "{{api_key}}",
+            "type": "text"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"repo_url\": \"http://localhost:8080/secret\",\n  \"changed_files\": []\n}"
+        },
+        "url": {
+          "raw": "{{base_url}}/api/v1/docs/analyze",
+          "host": ["{{base_url}}"],
+          "path": ["api", "v1", "docs", "analyze"]
+        }
+      }
+    },
+    {
+      "name": "TC3 - POST Analyze hợp lệ (202 + tự lưu job_id)",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Status code is 202 Accepted', function () {",
+              "  pm.response.to.have.status(202);",
+              "});",
+              "const body = pm.response.json();",
+              "pm.test('Returns job_id and status processing', function () {",
+              "  pm.expect(body.job_id).to.be.a('string').and.not.empty;",
+              "  pm.expect(body.status).to.eql('processing');",
+              "});",
+              "if (body.job_id) {",
+              "  if (pm.environment.name) {",
+              "    pm.environment.set('job_id', body.job_id);",
+              "  }",
+              "  pm.collectionVariables.set('job_id', body.job_id);",
+              "  console.log('Saved job_id:', body.job_id);",
+              "}"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json",
+            "type": "text"
+          },
+          {
+            "key": "X-API-Key",
+            "value": "{{api_key}}",
+            "type": "text"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"repo_url\": \"{{repo_url}}\",\n  \"branch\": \"{{branch}}\",\n  \"commit_sha\": \"{{commit_sha}}\",\n  \"changed_files\": []\n}"
+        },
+        "url": {
+          "raw": "{{base_url}}/api/v1/docs/analyze",
+          "host": ["{{base_url}}"],
+          "path": ["api", "v1", "docs", "analyze"]
+        }
+      }
+    },
+    {
+      "name": "TC4 & TC5 - GET Job theo job_id (200 processing -> done)",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Status code is 200 OK', function () {",
+              "  pm.response.to.have.status(200);",
+              "});",
+              "const body = pm.response.json();",
+              "pm.test('Status is processing or done', function () {",
+              "  pm.expect(['processing', 'done']).to.include(body.status);",
+              "});",
+              "if (body.status === 'done') {",
+              "  pm.test('Done payload contains code_map and documents', function () {",
+              "    pm.expect(body.commit_sha).to.be.a('string').and.not.empty;",
+              "    pm.expect(body.code_map).to.be.an('array').that.is.not.empty;",
+              "    pm.expect(body.documents).to.be.an('array').that.is.not.empty;",
+              "  });",
+              "}"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "X-API-Key",
+            "value": "{{api_key}}",
+            "type": "text"
+          }
+        ],
+        "url": {
+          "raw": "{{base_url}}/api/v1/docs/jobs/{{job_id}}",
+          "host": ["{{base_url}}"],
+          "path": ["api", "v1", "docs", "jobs", "{{job_id}}"]
+        }
+      }
+    },
+    {
+      "name": "TC6 - GET Job không tồn tại (404)",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Status code is 404 Not Found', function () {",
+              "  pm.response.to.have.status(404);",
+              "});",
+              "pm.test('Error code is JOB_NOT_FOUND', function () {",
+              "  const body = pm.response.json();",
+              "  pm.expect(body.error.code).to.eql('JOB_NOT_FOUND');",
+              "});"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "X-API-Key",
+            "value": "{{api_key}}",
+            "type": "text"
+          }
+        ],
+        "url": {
+          "raw": "{{base_url}}/api/v1/docs/jobs/job-does-not-exist-999",
+          "host": ["{{base_url}}"],
+          "path": ["api", "v1", "docs", "jobs", "job-does-not-exist-999"]
+        }
+      }
+    }
+  ]
+}

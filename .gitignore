@@ -1,0 +1,22 @@
+# Dependencies & build
+node_modules/
+dist/
+build/
+
+# Secrets & environment
+.env
+.env.*
+!.env.example
+tests/*.local.json
+
+# Runtime job outputs & cloned repositories
+data/jobs/
+data/repos/
+experiments/repos/
+
+.agent/
+doc/
+
+# Logs & OS files
+*.log
+.DS_Store

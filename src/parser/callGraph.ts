@@ -1,16 +1,108 @@
-import path from "node:path";
 import type { CodeMapNode, ParsedFile, ParsedFunction } from "../types/index.js";
+import { getAdapterForFile } from "./languages/registry.js";
 
-const RESOLVABLE_EXTENSIONS = [
-  ".ts",
-  ".tsx",
-  ".mts",
-  ".cts",
-  ".js",
-  ".jsx",
-  ".mjs",
-  ".cjs",
-];
+/**
+ * Common standard-library / built-in method names across JS/TS, Python, C#, Java, Go.
+ * Excluded from loose single-name fallback to prevent false-positive edges
+ * (e.g. `map.get(k)` being falsely linked to `SupabaseJobStore.get`).
+ */
+const COMMON_BUILTIN_METHODS = new Set([
+  "get",
+  "set",
+  "has",
+  "delete",
+  "add",
+  "remove",
+  "clear",
+  "map",
+  "filter",
+  "reduce",
+  "forEach",
+  "find",
+  "some",
+  "every",
+  "push",
+  "pop",
+  "shift",
+  "unshift",
+  "slice",
+  "splice",
+  "split",
+  "join",
+  "trim",
+  "replace",
+  "match",
+  "test",
+  "exec",
+  "includes",
+  "startsWith",
+  "endsWith",
+  "indexOf",
+  "toLowerCase",
+  "toUpperCase",
+  "toString",
+  "valueOf",
+  "keys",
+  "values",
+  "entries",
+  "sort",
+  "reverse",
+  "concat",
+  "flat",
+  "flatMap",
+  "then",
+  "catch",
+  "finally",
+  "log",
+  "info",
+  "warn",
+  "error",
+  "debug",
+  "parse",
+  "stringify",
+  "resolve",
+  "reject",
+  "all",
+  "race",
+  "assign",
+  "freeze",
+  "from",
+  "isArray",
+  "now",
+  "append",
+  "extend",
+  "items",
+  "format",
+  "strip",
+  "lower",
+  "upper",
+  "read",
+  "write",
+  "close",
+  "open",
+  "send",
+  "status",
+  "json",
+  "end",
+  "next",
+  "use",
+  "listen",
+  "on",
+  "emit",
+  "off",
+  "once",
+  "ToString",
+  "Equals",
+  "GetHashCode",
+  "Add",
+  "Remove",
+  "Contains",
+  "Count",
+  "ToList",
+  "FirstOrDefault",
+  "Select",
+  "Where",
+]);
 
 function toSlug(input: string): string {
   return input
@@ -40,56 +132,27 @@ function createNodeId(filePath: string, fnName: string, usedIds: Set<string>): s
   return uniqueId;
 }
 
-function resolveImportTargetFile(
-  fromFilePath: string,
-  importSource: string,
-  allFilePaths: Set<string>
-): string | null {
-  if (!importSource.startsWith(".")) {
-    return null;
-  }
-
-  const fromDir = path.posix.dirname(fromFilePath);
-  const rawTarget = path.posix.normalize(path.posix.join(fromDir, importSource));
-
-  // Direct match (e.g., "./auth.js" in JS repo)
-  if (allFilePaths.has(rawTarget)) {
-    return rawTarget;
-  }
-
-  // Strip .js/.jsx/.mjs/.cjs extension for TS ESM imports (`./jobQueue.js` -> `./jobQueue.ts`)
-  const stripped = rawTarget.replace(/\.(?:[cm]?js|jsx)$/i, "");
-  for (const ext of RESOLVABLE_EXTENSIONS) {
-    const candidate = `${stripped}${ext}`;
-    if (allFilePaths.has(candidate)) {
-      return candidate;
-    }
-  }
-
-  // Directory index import (`./utils` -> `./utils/index.ts`)
-  for (const ext of RESOLVABLE_EXTENSIONS) {
-    const indexCandidate = `${rawTarget}/index${ext}`;
-    if (allFilePaths.has(indexCandidate)) {
-      return indexCandidate;
-    }
-  }
-
-  return null;
-}
-
 interface IndexedFunction {
   nodeId: string;
   filePath: string;
   fn: ParsedFunction;
 }
 
-export function buildCodeMap(parsedFiles: ParsedFile[]): CodeMapNode[] {
+export interface BuildCodeMapOptions {
+  pathAliases?: Record<string, string[]>;
+}
+
+export function buildCodeMap(
+  parsedFiles: ParsedFile[],
+  options: BuildCodeMapOptions = {}
+): CodeMapNode[] {
   const usedIds = new Set<string>();
   const allFilePaths = new Set(parsedFiles.map((file) => file.file_path));
 
   const indexedAll: IndexedFunction[] = [];
   const byFile = new Map<string, IndexedFunction[]>();
   const bySimpleName = new Map<string, IndexedFunction[]>();
+  const byClassAndMethod = new Map<string, IndexedFunction[]>();
 
   for (const file of parsedFiles) {
     const fileItems: IndexedFunction[] = [];
@@ -111,6 +174,13 @@ export function buildCodeMap(parsedFiles: ParsedFile[]): CodeMapNode[] {
       const list = bySimpleName.get(simpleName) ?? [];
       list.push(item);
       bySimpleName.set(simpleName, list);
+
+      if (fn.class_name) {
+        const key = `${fn.class_name}.${simpleName}`;
+        const classList = byClassAndMethod.get(key) ?? [];
+        classList.push(item);
+        byClassAndMethod.set(key, classList);
+      }
     }
 
     byFile.set(file.file_path, fileItems);
@@ -125,7 +195,7 @@ export function buildCodeMap(parsedFiles: ParsedFile[]): CodeMapNode[] {
     const sameFileItems = byFile.get(caller.filePath) ?? [];
     const currentFile = fileMap.get(caller.filePath);
 
-    // 1. Same-class method call: `this.methodName`
+    // 1. Same-class method call: `this.methodName` (also normalized from Python `self.methodName`)
     if (rawCall.startsWith("this.") && caller.fn.class_name) {
       const methodName = rawCall.slice("this.".length).split(".")[0];
       if (methodName) {
@@ -137,7 +207,7 @@ export function buildCodeMap(parsedFiles: ParsedFile[]): CodeMapNode[] {
       }
     }
 
-    // 2. Direct function or constructor call in same file
+    // 2. Direct function, nested function, or constructor call in same file
     const normalizedCall = rawCall.startsWith("new ")
       ? rawCall.slice("new ".length)
       : rawCall;
@@ -145,42 +215,53 @@ export function buildCodeMap(parsedFiles: ParsedFile[]): CodeMapNode[] {
     const sameFileHit = sameFileItems.find(
       (item) =>
         item.fn.name === normalizedCall ||
-        item.fn.class_name === normalizedCall
+        item.fn.class_name === normalizedCall ||
+        item.fn.name === `${caller.fn.name}.${normalizedCall}`
     );
     if (sameFileHit && sameFileHit.nodeId !== caller.nodeId) {
       return sameFileHit.nodeId;
     }
 
-    // 3. Cross-file resolution via relative imports
+    // 3. Cross-file resolution via language adapter import resolution
     if (currentFile) {
       const callParts = normalizedCall.split(".");
       const rootIdentifier = callParts[0];
       const memberName = callParts[1];
+      let adapter: ReturnType<typeof getAdapterForFile> | null = null;
+      try {
+        adapter = getAdapterForFile(caller.filePath);
+      } catch {
+        adapter = null;
+      }
 
       for (const imp of currentFile.imports) {
-        const targetFile = resolveImportTargetFile(
-          caller.filePath,
-          imp.source,
-          allFilePaths
-        );
+        const targetFile = adapter?.resolveImportTarget?.({
+          fromFilePath: caller.filePath,
+          importSource: imp.source,
+          allFilePaths,
+          pathAliases: options.pathAliases,
+        });
         if (!targetFile) continue;
 
         const targetItems = byFile.get(targetFile) ?? [];
         if (targetItems.length === 0) continue;
 
-        // Named import match: `import { foo } from "./bar"` -> `foo()` or `ClassName.method()`
+        // Named import match (with alias support): `import { foo as bar } from "./x"` -> `bar()`
         if (rootIdentifier && imp.imported_names.includes(rootIdentifier)) {
+          const originalName = imp.aliases?.[rootIdentifier] ?? rootIdentifier;
           if (memberName) {
             const classMethodHit = targetItems.find(
-              (item) => item.fn.name === `${rootIdentifier}.${memberName}`
+              (item) => item.fn.name === `${originalName}.${memberName}`
             );
             if (classMethodHit) return classMethodHit.nodeId;
           }
           const directHit = targetItems.find(
             (item) =>
-              item.fn.name === rootIdentifier ||
-              (item.fn.class_name === rootIdentifier &&
-                item.fn.name.endsWith(".constructor"))
+              item.fn.name === originalName ||
+              (item.fn.class_name === originalName &&
+                item.fn.name.endsWith(".constructor")) ||
+              (item.fn.class_name === originalName &&
+                item.fn.name.endsWith(".__init__"))
           );
           if (directHit) return directHit.nodeId;
         }
@@ -209,10 +290,24 @@ export function buildCodeMap(parsedFiles: ParsedFile[]): CodeMapNode[] {
       }
     }
 
-    // 4. Member call on injected instance like `this.jobStore.update` or `jobQueue.enqueue`
+    // 4. Exact ClassName.MethodName match (useful for C# / Java / static calls)
+    const exactClassHits = byClassAndMethod.get(normalizedCall);
+    if (exactClassHits && exactClassHits.length === 1) {
+      const only = exactClassHits[0];
+      if (only && only.nodeId !== caller.nodeId) {
+        return only.nodeId;
+      }
+    }
+
+    // 5. Safe member/function fallback (skipping common built-in method names to prevent false positives)
     if (normalizedCall.includes(".")) {
       const methodPart = normalizedCall.split(".").at(-1);
-      if (methodPart && methodPart !== "constructor") {
+      if (
+        methodPart &&
+        methodPart !== "constructor" &&
+        methodPart !== "__init__" &&
+        !COMMON_BUILTIN_METHODS.has(methodPart)
+      ) {
         const candidates = bySimpleName.get(methodPart);
         if (candidates && candidates.length === 1) {
           const only = candidates[0];
@@ -221,8 +316,7 @@ export function buildCodeMap(parsedFiles: ParsedFile[]): CodeMapNode[] {
           }
         }
       }
-    } else {
-      // Unique top-level function name fallback
+    } else if (!COMMON_BUILTIN_METHODS.has(normalizedCall)) {
       const candidates = bySimpleName.get(normalizedCall);
       if (candidates && candidates.length === 1) {
         const only = candidates[0];

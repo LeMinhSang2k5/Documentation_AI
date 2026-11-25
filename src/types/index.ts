@@ -93,13 +93,23 @@ export interface ParsedFunction {
 export interface ParsedImport {
   source: string;
   imported_names: string[];
+  /** Map local alias -> original exported name (e.g. `import { foo as bar }` -> `{ bar: "foo" }`) */
+  aliases?: Record<string, string>;
   default_import?: string;
   namespace_import?: string;
 }
 
 export interface ParsedFile {
   file_path: string;
+  language?: string;
   has_syntax_error: boolean;
   imports: ParsedImport[];
   functions: ParsedFunction[];
+}
+
+export interface DetectedProjectInfo {
+  languages: Record<string, number>;
+  primary_language: string | null;
+  frameworks: string[];
+  path_aliases: Record<string, string[]>;
 }

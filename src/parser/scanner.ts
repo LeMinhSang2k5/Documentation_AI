@@ -1,6 +1,7 @@
 import fs from "node:fs/promises";
 import path from "node:path";
 import { normalizeRelativePath } from "./astReader.js";
+import { isSupportedSourceFile } from "./core.js";
 
 const IGNORED_DIRS = new Set([
   ".git",
@@ -18,27 +19,28 @@ const IGNORED_DIRS = new Set([
   "doc",
   "docs",
   "__pycache__",
+  ".pytest_cache",
+  ".mypy_cache",
   ".venv",
   "venv",
+  "env",
+  "site-packages",
   "bin",
   "obj",
-]);
-
-const CODE_EXTENSIONS = new Set([
-  ".ts",
-  ".tsx",
-  ".mts",
-  ".cts",
-  ".js",
-  ".jsx",
-  ".mjs",
-  ".cjs",
+  "target",
+  "vendor",
+  ".gradle",
 ]);
 
 const IGNORED_FILE_PATTERNS = [
   /\.d\.ts$/i,
   /\.test\.[^.]+$/i,
   /\.spec\.[^.]+$/i,
+  /^test_.*\.py$/i,
+  /_test\.py$/i,
+  /_test\.go$/i,
+  /Tests?\.cs$/i,
+  /Tests?\.java$/i,
   /\.min\.js$/i,
   /\.config\.[^.]+$/i,
 ];
@@ -51,8 +53,7 @@ export function isScannableSourceFile(relativePath: string): boolean {
   }
 
   const baseName = path.posix.basename(normalized);
-  const ext = path.posix.extname(baseName).toLowerCase();
-  if (!CODE_EXTENSIONS.has(ext)) {
+  if (!isSupportedSourceFile(baseName)) {
     return false;
   }
 

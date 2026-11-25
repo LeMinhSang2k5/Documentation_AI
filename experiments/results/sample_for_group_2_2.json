@@ -1,0 +1,105 @@
+{
+  "job_id": "doc_job_2026_001",
+  "status": "done",
+  "commit_sha": "58629bb",
+  "code_map": [
+    {
+      "node_id": "fn_src_api_client_get_token",
+      "name": "getToken",
+      "file_path": "src/api/client.js",
+      "start_line": 4,
+      "end_line": 6,
+      "calls": []
+    },
+    {
+      "node_id": "fn_src_api_client_request",
+      "name": "request",
+      "file_path": "src/api/client.js",
+      "start_line": 8,
+      "end_line": 34,
+      "calls": [
+        "fn_src_api_client_get_token"
+      ]
+    },
+    {
+      "node_id": "fn_src_api_client_save_auth",
+      "name": "saveAuth",
+      "file_path": "src/api/client.js",
+      "start_line": 43,
+      "end_line": 46,
+      "calls": []
+    },
+    {
+      "node_id": "fn_src_api_client_clear_auth",
+      "name": "clearAuth",
+      "file_path": "src/api/client.js",
+      "start_line": 48,
+      "end_line": 51,
+      "calls": []
+    },
+    {
+      "node_id": "fn_src_api_client_load_saved_auth",
+      "name": "loadSavedAuth",
+      "file_path": "src/api/client.js",
+      "start_line": 53,
+      "end_line": 62,
+      "calls": []
+    },
+    {
+      "node_id": "fn_src_hooks_use_settings_use_settings",
+      "name": "useSettings",
+      "file_path": "src/hooks/useSettings.js",
+      "start_line": 5,
+      "end_line": 97,
+      "calls": [
+        "fn_src_data_settings_data_merge_client_settings",
+        "fn_src_data_settings_data_apply_theme_mode",
+        "fn_src_api_client_save_auth"
+      ]
+    },
+    {
+      "node_id": "fn_src_hooks_use_tasks_use_tasks",
+      "name": "useTasks",
+      "file_path": "src/hooks/useTasks.js",
+      "start_line": 4,
+      "end_line": 51,
+      "calls": []
+    }
+  ],
+  "documents": [
+    {
+      "doc_id": "doc_usesettings",
+      "title": "Tài liệu kỹ thuật src/hooks/useSettings.js",
+      "path": "modules/useSettings.md",
+      "markdown": "# Tài liệu kỹ thuật useSettings\n\nHàm `useSettings` là một Custom Hook trong React dùng để quản lý cấu hình người dùng, thông tin tài khoản, trạng thái tải, lưu trữ và sao lưu dữ liệu.\n\n## Tổng quan\n\n- File: `src/hooks/useSettings.js`\n- Hook chính: `useSettings`\n\n## Mô tả hàm `useSettings`\n\nHàm `useSettings(isAuthenticated)` nhận tham số `isAuthenticated` để kiểm tra trạng thái xác thực và thực hiện:\n- Quản lý state `settings`, `account`, `loading`, `saving`, và `error`.\n- Cung cấp hàm `reload` để tải lại cấu hình từ server khi đã đăng nhập.\n- Cung cấp hàm `saveSettings` để cập nhật cấu hình.\n- Cung cấp hàm `saveAccount` để cập nhật thông tin tài khoản.\n- Cung cấp hàm `exportBackup` để tải xuống file sao lưu cấu hình.\n\n### Các hàm được gọi nội bộ\n- `mergeClientSettings`: Hợp nhất cấu hình client.\n- `applyThemeMode`: Áp dụng chế độ giao diện.\n- `saveAuth`: Lưu thông tin xác thực.",
+      "mermaid_diagram": "flowchart TD\n    A[\"useSettings\"] --> B[\"reload\"]\n    A --> C[\"saveSettings\"]\n    A --> D[\"saveAccount\"]\n    A --> E[\"exportBackup\"]",
+      "source_node_ids": [
+        "fn_src_hooks_use_settings_use_settings"
+      ]
+    },
+    {
+      "doc_id": "doc_client",
+      "title": "Tài liệu API Client src/api/client.js",
+      "path": "modules/client.md",
+      "markdown": "Tài liệu này mô tả các hàm tiện ích và quản lý xác thực trong `src/api/client.js`.\n\n## Các hàm chính\n- `getToken`: Lấy mã thông báo (token) từ localStorage.\n- `request`: Thực hiện gọi fetch API, tự động đính kèm header Authorization nếu có token, đồng thời xử lý kết quả trả về.\n- `saveAuth`: Lưu thông tin xác thực (token và user) vào localStorage.\n- `clearAuth`: Xóa thông tin xác thực khỏi localStorage.\n- `loadSavedAuth`: Tải thông tin xác thực đã lưu từ localStorage.",
+      "mermaid_diagram": "flowchart TD\nfn_src_api_client_request --> fn_src_api_client_get_token",
+      "source_node_ids": [
+        "fn_src_api_client_get_token",
+        "fn_src_api_client_request",
+        "fn_src_api_client_save_auth",
+        "fn_src_api_client_clear_auth",
+        "fn_src_api_client_load_saved_auth"
+      ]
+    },
+    {
+      "doc_id": "doc_usetasks",
+      "title": "Tài liệu kỹ thuật hook useTasks",
+      "path": "modules/useTasks.md",
+      "markdown": "# useTasks\n\nHook `useTasks` (`fn_src_hooks_use_tasks_use_tasks`) quản lý trạng thái và các thao tác CRUD cho danh sách công việc (tasks) trong ứng dụng.\n\n## Tham số\n- `isAuthenticated`: Biểu thị trạng thái xác thực của người dùng.\n- `options` (đối tượng): Tùy chọn cấu hình\n  - `addToBottom` (boolean): Nếu là `true`, công việc mới sẽ được thêm vào cuối danh sách; ngược lại sẽ được thêm lên đầu.\n\n## Giá trị trả về\nTrả về một đối tượng chứa:\n- `tasks`: Mảng danh sách công việc hiện tại.\n- `loading`: Trạng thái đang tải dữ liệu.\n- `error`: Thông báo lỗi (nếu có).\n- `addTask`: Hàm thêm công việc mới.\n- `toggleTask`: Hàm thay đổi trạng thái hoàn thành của công việc.\n- `updateTask`: Hàm cập nhật thông tin công việc.\n- `deleteTask`: Hàm xóa công việc.\n- `reload`: Hàm tải lại danh sách công việc.",
+      "mermaid_diagram": "flowchart TD\n    A[\"useTasks\"] --> B[\"reload\"]\n    A --> C[\"addTask\"]\n    A --> D[\"toggleTask\"]\n    A --> E[\"updateTask\"]\n    A --> F[\"deleteTask\"]",
+      "source_node_ids": [
+        "fn_src_hooks_use_tasks_use_tasks"
+      ]
+    }
+  ]
+}

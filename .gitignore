@@ -21,3 +21,7 @@ doc/
 # Logs & OS files
 *.log
 .DS_Store
+
+# Preview
+preview.html
+.preview/

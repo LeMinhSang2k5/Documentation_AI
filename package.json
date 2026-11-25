@@ -12,19 +12,26 @@
     "test:harness": "tsx --test tests/ai-harness.test.ts",
     "parse:sample": "tsx tests/sample-parse.ts",
     "week1:survey": "tsx experiments/week1/runWeek1Survey.ts",
-    "week1:sample-json": "tsx experiments/week1/exportSampleFor2_2.ts"
+    "week1:sample-json": "tsx experiments/week1/exportSampleFor2_2.ts",
+    "preview": "tsx src/preview/index.ts",
+    "test:preview": "tsx tests/preview-verify.ts"
   },
   "dependencies": {
     "@google/genai": "^1.0.0",
     "@supabase/supabase-js": "^2.49.0",
+    "commander": "^15.1.0",
     "dotenv": "^16.4.7",
     "express": "^4.21.2",
+    "jsdom": "^31.0.1",
+    "marked": "^18.3.0",
+    "mermaid": "^12.3.0",
     "tree-sitter-wasms": "^0.1.13",
     "web-tree-sitter": "0.25.10",
     "zod": "^4.6.7"
   },
   "devDependencies": {
     "@types/express": "^4.17.21",
+    "@types/jsdom": "^30.0.0",
     "@types/node": "^22.13.0",
     "tsx": "^4.19.3",
     "typescript": "^5.7.3"

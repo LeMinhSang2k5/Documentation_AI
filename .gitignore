@@ -16,8 +16,9 @@ experiments/repos/
 output/
 
 .agent/
-doc/
+doc/week1/
 .plan/
+
 # Logs & OS files
 *.log
 .DS_Store

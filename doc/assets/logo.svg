@@ -1,0 +1,41 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" width="128" height="128" role="img" aria-label="Code Documentation Generator Logo">
+  <defs>
+    <linearGradient id="bgGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#0B1120"/>
+      <stop offset="100%" stop-color="#1E293B"/>
+    </linearGradient>
+    <linearGradient id="cyanGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#38BDF8"/>
+      <stop offset="100%" stop-color="#3B82F6"/>
+    </linearGradient>
+    <linearGradient id="emeraldGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#34D399"/>
+      <stop offset="100%" stop-color="#10B981"/>
+    </linearGradient>
+  </defs>
+
+  <!-- Rounded Squircle Container -->
+  <rect x="4" y="4" width="120" height="120" rx="28" fill="url(#bgGrad)" stroke="#334155" stroke-width="2.5"/>
+
+  <!-- Left AST Syntax Tree Graph -->
+  <line x1="34" y1="40" x2="24" y2="64" stroke="url(#cyanGrad)" stroke-width="3" stroke-linecap="round"/>
+  <line x1="34" y1="40" x2="46" y2="64" stroke="url(#cyanGrad)" stroke-width="3" stroke-linecap="round"/>
+  <line x1="46" y1="64" x2="36" y2="88" stroke="url(#cyanGrad)" stroke-width="3" stroke-linecap="round"/>
+  <line x1="46" y1="64" x2="64" y2="64" stroke="#38BDF8" stroke-width="2.5" stroke-dasharray="4 3" stroke-linecap="round"/>
+
+  <circle cx="34" cy="40" r="6.5" fill="#0B1120" stroke="#38BDF8" stroke-width="3"/>
+  <circle cx="24" cy="64" r="5.5" fill="#38BDF8"/>
+  <circle cx="46" cy="64" r="6" fill="#0B1120" stroke="#3B82F6" stroke-width="3"/>
+  <circle cx="36" cy="88" r="5.5" fill="#3B82F6"/>
+
+  <!-- Right Technical Document Card -->
+  <rect x="64" y="28" width="42" height="58" rx="8" fill="#0F172A" stroke="url(#cyanGrad)" stroke-width="2.5"/>
+  <line x1="73" y1="42" x2="96" y2="42" stroke="#E2E8F0" stroke-width="3" stroke-linecap="round"/>
+  <line x1="73" y1="53" x2="97" y2="53" stroke="#94A3B8" stroke-width="2.5" stroke-linecap="round"/>
+  <line x1="73" y1="63" x2="90" y2="63" stroke="#94A3B8" stroke-width="2.5" stroke-linecap="round"/>
+  <line x1="73" y1="73" x2="85" y2="73" stroke="#38BDF8" stroke-width="2.5" stroke-linecap="round"/>
+
+  <!-- AI Harness Verified Shield Badge -->
+  <circle cx="98" cy="86" r="14" fill="url(#emeraldGrad)" stroke="#0B1120" stroke-width="3"/>
+  <path d="M92 86.5 L96.2 90.7 L104.5 82" fill="none" stroke="#06281E" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>

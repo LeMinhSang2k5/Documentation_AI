@@ -9,9 +9,13 @@
     "start": "tsx src/index.ts",
     "typecheck": "tsc --noEmit",
     "test:api": "tsx tests/run-verify.ts",
-    "parse:sample": "tsx tests/sample-parse.ts"
+    "test:harness": "tsx --test tests/ai-harness.test.ts",
+    "parse:sample": "tsx tests/sample-parse.ts",
+    "week1:survey": "tsx experiments/week1/runWeek1Survey.ts",
+    "week1:sample-json": "tsx experiments/week1/exportSampleFor2_2.ts"
   },
   "dependencies": {
+    "@google/genai": "^1.0.0",
     "@supabase/supabase-js": "^2.49.0",
     "dotenv": "^16.4.7",
     "express": "^4.21.2",

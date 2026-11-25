@@ -15,8 +15,10 @@ function isSafeRelativeFilePath(filePath: string): boolean {
 export const analyzeRequestSchema = z.object({
   repo_url: z
     .string({
-      required_error: "repo_url is required",
-      invalid_type_error: "repo_url must be a string",
+      error: (issue) =>
+        issue.input === undefined
+          ? "repo_url is required"
+          : "repo_url must be a string",
     })
     .trim()
     .min(1, "repo_url cannot be empty")
@@ -25,7 +27,7 @@ export const analyzeRequestSchema = z.object({
     }),
 
   branch: z
-    .string({ invalid_type_error: "branch must be a string" })
+    .string({ error: "branch must be a string" })
     .trim()
     .min(1, "branch cannot be empty")
     .max(200, "branch name is too long")
@@ -52,7 +54,7 @@ export const analyzeRequestSchema = z.object({
   changed_files: z
     .array(
       z
-        .string({ invalid_type_error: "changed_files items must be strings" })
+        .string({ error: "changed_files items must be strings" })
         .trim()
         .refine(isSafeRelativeFilePath, {
           message: "Each changed_files item must be a relative path using '/' without leading '/' or '..'",

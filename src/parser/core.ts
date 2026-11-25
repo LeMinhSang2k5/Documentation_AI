@@ -4,7 +4,20 @@ import { Language, Parser } from "web-tree-sitter";
 
 const require = createRequire(import.meta.url);
 
-export type SupportedGrammar = "typescript" | "tsx" | "javascript" | "python" | "c_sharp";
+export type SupportedGrammar =
+  | "typescript"
+  | "tsx"
+  | "javascript"
+  | "python"
+  | "c_sharp"
+  | "java"
+  | "go"
+  | "php"
+  | "rust"
+  | "ruby"
+  | "kotlin"
+  | "cpp"
+  | "c";
 
 const GRAMMAR_WASM_SPECIFIERS: Record<SupportedGrammar, string> = {
   typescript: "tree-sitter-wasms/out/tree-sitter-typescript.wasm",
@@ -12,6 +25,14 @@ const GRAMMAR_WASM_SPECIFIERS: Record<SupportedGrammar, string> = {
   javascript: "tree-sitter-wasms/out/tree-sitter-javascript.wasm",
   python: "tree-sitter-wasms/out/tree-sitter-python.wasm",
   c_sharp: "tree-sitter-wasms/out/tree-sitter-c_sharp.wasm",
+  java: "tree-sitter-wasms/out/tree-sitter-java.wasm",
+  go: "tree-sitter-wasms/out/tree-sitter-go.wasm",
+  php: "tree-sitter-wasms/out/tree-sitter-php.wasm",
+  rust: "tree-sitter-wasms/out/tree-sitter-rust.wasm",
+  ruby: "tree-sitter-wasms/out/tree-sitter-ruby.wasm",
+  kotlin: "tree-sitter-wasms/out/tree-sitter-kotlin.wasm",
+  cpp: "tree-sitter-wasms/out/tree-sitter-cpp.wasm",
+  c: "tree-sitter-wasms/out/tree-sitter-c.wasm",
 };
 
 const EXTENSION_TO_GRAMMAR: Record<string, SupportedGrammar> = {
@@ -25,7 +46,24 @@ const EXTENSION_TO_GRAMMAR: Record<string, SupportedGrammar> = {
   ".cjs": "javascript",
   ".py": "python",
   ".cs": "c_sharp",
+  ".java": "java",
+  ".go": "go",
+  ".php": "php",
+  ".rs": "rust",
+  ".rb": "ruby",
+  ".kt": "kotlin",
+  ".kts": "kotlin",
+  ".cpp": "cpp",
+  ".cc": "cpp",
+  ".cxx": "cpp",
+  ".hpp": "cpp",
+  ".c": "c",
+  ".h": "c",
 };
+
+export function getSupportedExtensions(): string[] {
+  return Object.keys(EXTENSION_TO_GRAMMAR);
+}
 
 export function isSupportedSourceFile(filePath: string): boolean {
   const ext = path.extname(filePath).toLowerCase();

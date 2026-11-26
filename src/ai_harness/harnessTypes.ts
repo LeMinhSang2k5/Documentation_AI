@@ -9,10 +9,22 @@ export interface TokenUsage {
   totalTokens: number;
 }
 
+export interface ToolCallLogEntry {
+  name: string;
+  args: Record<string, unknown>;
+}
+
+export interface ToolExecutionContext {
+  codeMap: CodeMapNode[];
+  repoDir?: string;
+  maxToolRounds?: number;
+}
+
 export interface LLMGenerateRequest {
   systemPrompt: string;
   userPrompt: string;
   expectJsonSchema?: boolean;
+  toolContext?: ToolExecutionContext;
   mockContext?: {
     mode: "v1_raw" | "v2_structured";
     filePath: string;
@@ -27,6 +39,8 @@ export interface LLMGenerateResponse {
   latencyMs: number;
   provider: LLMProviderName;
   model: string;
+  toolCallsCount?: number;
+  toolCallsLog?: ToolCallLogEntry[];
 }
 
 export interface MermaidCheckResult {
@@ -51,4 +65,6 @@ export interface SelfCheckGenerationResult {
   initialMermaidValid: boolean;
   finalVerification: VerificationResult;
   totalTokens: number;
+  toolCallsCount: number;
+  toolCallsLog: ToolCallLogEntry[];
 }

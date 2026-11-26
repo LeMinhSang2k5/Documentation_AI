@@ -9,10 +9,16 @@ export interface CodeMapNode {
   calls: string[];
 }
 
+export interface DocSpecItem {
+  key: string;
+  value: string;
+}
+
 export interface DocItem {
   doc_id: string;
   title: string;
   path: string;
+  specs?: DocSpecItem[];
   markdown: string;
   mermaid_diagram: string | null;
   source_node_ids: string[];

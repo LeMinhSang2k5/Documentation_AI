@@ -8,6 +8,7 @@ export { MetricsTracker, type RunSummaryMetrics } from "./metrics.js";
 export {
   AI_DOCUMENT_JSON_SCHEMA,
   AIDocumentOutputSchema,
+  DocSpecItemSchema,
   LocalJobResultSchema,
   type AIDocumentOutput,
 } from "./schema.js";
@@ -22,7 +23,15 @@ export {
   type RelatedFunctionsResult,
 } from "./tools/relatedFunctions.js";
 export {
+  executeHarnessTool,
+  HARNESS_GEMINI_TOOL_DECLARATIONS,
+  HARNESS_OPENAI_TOOLS,
+  HARNESS_TOOL_SCHEMAS,
+} from "./tools/toolRegistry.js";
+export {
+  DEFAULT_STRUCTURED_JSON_PROMPT,
   extractReferencedCodeSymbols,
+  formatSpecsToMarkdownSection,
   generateDocumentWithSelfCheck,
   verifyDocument,
 } from "./verifier.js";

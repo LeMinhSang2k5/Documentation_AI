@@ -129,6 +129,31 @@ function formatCallee(node: Node | null): string | null {
   }
 }
 
+/**
+ * Unwrap React hook wrappers like `useCallback(async (...) => {}, [deps])`
+ * so nested handlers inside custom hooks are extracted as their own nodes.
+ */
+function unwrapFunctionValue(valueNode: Node | null): Node | null {
+  if (!valueNode) return null;
+  if (valueNode.type === "arrow_function" || valueNode.type === "function_expression") {
+    return valueNode;
+  }
+  if (valueNode.type === "call_expression") {
+    const callee = formatCallee(valueNode.childForFieldName("function"));
+    if (callee === "useCallback" || callee === "React.useCallback") {
+      const args = valueNode.childForFieldName("arguments");
+      const firstArg = args?.namedChildren.find((c): c is Node => c !== null) ?? null;
+      if (
+        firstArg &&
+        (firstArg.type === "arrow_function" || firstArg.type === "function_expression")
+      ) {
+        return firstArg;
+      }
+    }
+  }
+  return null;
+}
+
 function extractRawCalls(bodyNode: Node | null, skipNestedNamedFunctions: boolean): string[] {
   if (!bodyNode) return [];
 
@@ -150,10 +175,7 @@ function extractRawCalls(bodyNode: Node | null, skipNestedNamedFunctions: boolea
       if (current.type === "variable_declarator") {
         const nameNode = current.childForFieldName("name");
         const valueNode = current.childForFieldName("value");
-        if (
-          nameNode?.type === "identifier" &&
-          (valueNode?.type === "arrow_function" || valueNode?.type === "function_expression")
-        ) {
+        if (nameNode?.type === "identifier" && unwrapFunctionValue(valueNode) !== null) {
           continue;
         }
       }
@@ -230,20 +252,17 @@ function extractNestedFunctions(
       for (const decl of stmt.namedChildren) {
         if (!decl || decl.type !== "variable_declarator") continue;
         const nameNode = decl.childForFieldName("name");
-        const valueNode = decl.childForFieldName("value");
-        if (!nameNode || nameNode.type !== "identifier" || !valueNode) continue;
-        if (valueNode.type !== "arrow_function" && valueNode.type !== "function_expression") {
-          continue;
-        }
+        const fnNode = unwrapFunctionValue(decl.childForFieldName("value"));
+        if (!nameNode || nameNode.type !== "identifier" || !fnNode) continue;
 
         const nestedName = `${parentName}.${nameNode.text}`;
-        const nestedBody = valueNode.childForFieldName("body");
+        const nestedBody = fnNode.childForFieldName("body");
         functions.push({
           name: nestedName,
-          kind: valueNode.type === "arrow_function" ? "arrow_function" : "function",
+          kind: fnNode.type === "arrow_function" ? "arrow_function" : "function",
           start_line: decl.startPosition.row + 1,
-          end_line: valueNode.endPosition.row + 1,
-          params: extractParams(valueNode),
+          end_line: decl.endPosition.row + 1,
+          params: extractParams(fnNode),
           is_exported: false,
           raw_calls: extractRawCalls(nestedBody, false),
         });
@@ -453,6 +472,45 @@ function extractVariableFunctions(
         raw_calls: extractRawCalls(bodyNode, true),
       });
       extractNestedFunctions(bodyNode, nameNode.text, functions);
+    } else if (valueNode.type === "object") {
+      // Extract methods inside exported/top-level object literals (e.g. `export const api = { createTask: () => ... }`)
+      const objName = nameNode.text;
+      for (const prop of valueNode.namedChildren) {
+        if (!prop) continue;
+        if (prop.type === "method_definition") {
+          const propName = prop.childForFieldName("name");
+          if (!propName) continue;
+          const bodyNode = prop.childForFieldName("body");
+          functions.push({
+            name: `${objName}.${propName.text}`,
+            kind: "method",
+            class_name: objName,
+            start_line: prop.startPosition.row + 1,
+            end_line: prop.endPosition.row + 1,
+            params: extractParams(prop),
+            is_exported: isExported,
+            raw_calls: extractRawCalls(bodyNode, true),
+          });
+        } else if (prop.type === "pair") {
+          const keyNode = prop.childForFieldName("key");
+          const valNode = prop.childForFieldName("value");
+          if (!keyNode || !valNode) continue;
+          if (valNode.type !== "arrow_function" && valNode.type !== "function_expression") {
+            continue;
+          }
+          const bodyNode = valNode.childForFieldName("body");
+          functions.push({
+            name: `${objName}.${keyNode.text}`,
+            kind: "method",
+            class_name: objName,
+            start_line: prop.startPosition.row + 1,
+            end_line: valNode.endPosition.row + 1,
+            params: extractParams(valNode),
+            is_exported: isExported,
+            raw_calls: extractRawCalls(bodyNode, true),
+          });
+        }
+      }
     }
   }
 }

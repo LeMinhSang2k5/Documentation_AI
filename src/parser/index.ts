@@ -16,6 +16,7 @@ export {
   resolveGrammarForFile,
 } from "./core.js";
 export { getAdapterForFile, getAdapterForGrammar } from "./languages/registry.js";
+export { extractDomainStem, groupFilesByBusinessFeature } from "./featureGrouper.js";
 export { detectProjectInfo } from "./projectDetector.js";
 export { scanRepositoryFiles, filterExistingSourceFiles, isScannableSourceFile } from "./scanner.js";
 

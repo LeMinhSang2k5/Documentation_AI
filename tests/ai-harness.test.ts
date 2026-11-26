@@ -152,3 +152,38 @@ test("DEFAULT_STRUCTURED_JSON_PROMPT & generateDocumentWithSelfCheck: chế đ�
   assert.ok((res.document.specs?.length ?? 0) >= 5, "Expected >= 5 detailed key-value specs");
   assert.ok(res.toolCallsCount >= 3, "Expected Tool Calling to execute during generation");
 });
+
+test("verifyDocument: chấp nhận property/enum có thật trong mã nguồn (user.id, Role.MEMBER) nhưng vẫn bắt tên bịa thật", () => {
+  const realSource = `
+    if (user.id && user.role === Role.MEMBER) {
+      return AuthService.login(user.id);
+    }
+  `;
+
+  const passResult = verifyDocument(
+    {
+      markdown: "Kiểm tra `user.id` và quyền `Role.MEMBER` trước khi gọi `AuthService.login`.",
+      mermaid_diagram: 'flowchart TD\n  A["Check"] --> B["Login"]',
+      source_node_ids: ["fn_src_services_auth_service_login"],
+    },
+    SAMPLE_CODE_MAP,
+    SAMPLE_CODE_MAP,
+    realSource
+  );
+  assert.equal(passResult.passed, true);
+  assert.deepEqual(passResult.hallucinatedSymbols, []);
+
+  const failResult = verifyDocument(
+    {
+      markdown: "Kiểm tra `user.id` rồi gọi `AuthService.fakeMethod()` và `fakeHelperFn()`.",
+      mermaid_diagram: 'flowchart TD\n  A["Check"] --> B["Login"]',
+      source_node_ids: ["fn_src_services_auth_service_login"],
+    },
+    SAMPLE_CODE_MAP,
+    SAMPLE_CODE_MAP,
+    realSource
+  );
+  assert.equal(failResult.passed, false);
+  assert.ok(failResult.hallucinatedSymbols.includes("AuthService.fakeMethod"));
+  assert.ok(failResult.hallucinatedSymbols.includes("fakeHelperFn"));
+});

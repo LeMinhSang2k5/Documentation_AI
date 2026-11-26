@@ -7,7 +7,10 @@ import {
   MetricsTracker,
   type LLMProviderName,
 } from "../ai_harness/index.js";
-import { analyzeRepositoryToCodeMap } from "../parser/index.js";
+import {
+  analyzeRepositoryToCodeMap,
+  groupFilesByBusinessFeature,
+} from "../parser/index.js";
 import type { LocalFileStorage } from "../storage/fileStorage.js";
 import type { JobStore } from "../storage/jobStore.js";
 import type {
@@ -134,9 +137,13 @@ export interface TreeSitterJobQueueOptions {
   keepClonedRepo?: boolean;
   llmProvider?: LLMProviderName;
   maxModuleDocs?: number;
+  maxNodesPerDoc?: number;
+  interDocDelayMs?: number;
 }
 
 interface ModuleGroup {
+  moduleKey: string;
+  baseSlug: string;
   docId: string;
   docPath: string;
   targetLabel: string;
@@ -145,6 +152,7 @@ interface ModuleGroup {
 }
 
 const MAX_SOURCE_CHARS_PER_DOC = 18_000;
+const DEFAULT_MAX_NODES_PER_DOC = 60;
 
 function slugifyId(input: string): string {
   return input
@@ -154,64 +162,308 @@ function slugifyId(input: string): string {
     .toLowerCase();
 }
 
+/**
+ * Xác định khóa module thông minh cho cả repo đơn lẫn monorepo (Java/Spring, React, Python, C#).
+ * VD:
+ * - `QuitSmoking_BE/quitsmoking/src/main/java/com/quitsmoking/controllers/AuthController.java` -> `QuitSmoking_BE/controllers`
+ * - `Frontend/src/components/NewsCard.jsx` -> `Frontend/src/components`
+ * - `src/api/controller.ts` -> `src/api`
+ */
+function resolveModuleKey(filePath: string): string {
+  const parts = filePath.split("/");
+  if (parts.length <= 1) return "root";
+
+  // Java / Kotlin / Maven / Gradle layout: <prefix>/src/main/(java|kotlin)/<group>/<artifact>/<layer>/...
+  const javaIdx = parts.findIndex(
+    (p, idx) =>
+      (p === "java" || p === "kotlin") &&
+      idx >= 2 &&
+      parts[idx - 1] === "main" &&
+      parts[idx - 2] === "src"
+  );
+  if (javaIdx !== -1) {
+    const prefix = javaIdx >= 3 ? parts[0]! : "java";
+    // Bỏ qua 2 segment package gốc (vd com/quitsmoking) nếu phía sau còn thư mục layer (controllers, services, ...)
+    const afterJava = parts.slice(javaIdx + 1, -1);
+    const layer =
+      afterJava.length >= 3
+        ? afterJava[2]!
+        : afterJava[afterJava.length - 1] ?? "core";
+    return `${prefix}/${layer}`;
+  }
+
+  // Monorepo hoặc repo chuẩn có thư mục `src/` hoặc `server/` hoặc `app/`
+  const srcIdx = parts.findIndex((p) => p === "src" || p === "server" || p === "app");
+  if (srcIdx !== -1 && srcIdx + 2 < parts.length) {
+    const prefix = srcIdx > 0 ? `${parts[0]}/${parts[srcIdx]}` : parts[srcIdx]!;
+    return `${prefix}/${parts[srcIdx + 1]}`;
+  }
+
+  if (parts.length >= 3) {
+    return `${parts[0]}/${parts[1]}`;
+  }
+  return parts[0]!;
+}
+
+/**
+ * Chia nhỏ một module bucket thành các batch tối đa `maxNodesPerDoc` node
+ * để không bao giờ nhồi hàng trăm/nghìn node code_map vào 1 prompt LLM duy nhất.
+ */
+function splitBucketByMaxNodes(
+  moduleKey: string,
+  groupFiles: ParsedFile[],
+  codeMap: CodeMapNode[],
+  maxNodesPerDoc: number
+): ModuleGroup[] {
+  const nodesByFile = new Map<string, CodeMapNode[]>();
+  for (const node of codeMap) {
+    const list = nodesByFile.get(node.file_path) ?? [];
+    list.push(node);
+    nodesByFile.set(node.file_path, list);
+  }
+
+  const rawChunks: Array<{ files: ParsedFile[]; nodes: CodeMapNode[] }> = [];
+  let currentFiles: ParsedFile[] = [];
+  let currentNodes: CodeMapNode[] = [];
+
+  for (const file of groupFiles) {
+    const fileNodes = nodesByFile.get(file.file_path) ?? [];
+
+    // Trường hợp hiếm: bản thân 1 file đơn lẻ đã có > maxNodesPerDoc node -> cắt lát theo maxNodesPerDoc
+    if (fileNodes.length > maxNodesPerDoc) {
+      if (currentFiles.length > 0) {
+        rawChunks.push({ files: currentFiles, nodes: currentNodes });
+        currentFiles = [];
+        currentNodes = [];
+      }
+      for (let offset = 0; offset < fileNodes.length; offset += maxNodesPerDoc) {
+        rawChunks.push({
+          files: [file],
+          nodes: fileNodes.slice(offset, offset + maxNodesPerDoc),
+        });
+      }
+      continue;
+    }
+
+    if (currentFiles.length > 0 && currentNodes.length + fileNodes.length > maxNodesPerDoc) {
+      rawChunks.push({ files: currentFiles, nodes: currentNodes });
+      currentFiles = [];
+      currentNodes = [];
+    }
+
+    currentFiles.push(file);
+    currentNodes.push(...fileNodes);
+  }
+
+  if (currentFiles.length > 0) {
+    rawChunks.push({ files: currentFiles, nodes: currentNodes });
+  }
+
+  const baseSlug = slugifyId(moduleKey) || "core";
+  return rawChunks.map((chunk, idx) => {
+    const isMultiPart = rawChunks.length > 1;
+    const partSuffix = isMultiPart ? `_part${idx + 1}` : "";
+    const labelSuffix = isMultiPart ? ` (phần ${idx + 1}/${rawChunks.length})` : "";
+    return {
+      moduleKey,
+      baseSlug,
+      docId: `doc_module_${baseSlug}${partSuffix}`,
+      docPath: `modules/${baseSlug}${partSuffix}.md`,
+      targetLabel: `${moduleKey}${labelSuffix}`,
+      files: chunk.files,
+      nodes: chunk.nodes,
+    };
+  });
+}
+
+/**
+ * Chấm điểm mức độ quan trọng của từng module dựa hoàn toàn trên cấu trúc Call Graph (`code_map`),
+ * KHÔNG hard-code tên thư mục hay framework:
+ * - Module chứa logic/luồng xử lý chính có nhiều cạnh `calls` (in + out) và nhiều hàm logic (>= 8 dòng).
+ * - Module chỉ chứa DTO/Entity/Getter-Setter thường có `calls` ~ 0 và hàm rất ngắn (1–3 dòng).
+ */
+function computeModuleImportanceScore(
+  moduleNodes: CodeMapNode[],
+  inDegreeMap: Map<string, number>
+): number {
+  let outCalls = 0;
+  let inCalls = 0;
+  let substantialFunctions = 0;
+
+  for (const node of moduleNodes) {
+    outCalls += node.calls.length;
+    inCalls += inDegreeMap.get(node.node_id) ?? 0;
+    const lineCount = node.end_line - node.start_line + 1;
+    if (lineCount >= 8) {
+      substantialFunctions += 1;
+    }
+  }
+
+  return (outCalls + inCalls) * 3 + substantialFunctions;
+}
+
 function groupFilesForDocumentation(
   parsedFiles: ParsedFile[],
   codeMap: CodeMapNode[],
-  maxModuleDocs: number
+  maxModuleDocs: number,
+  maxNodesPerDoc: number = DEFAULT_MAX_NODES_PER_DOC
 ): ModuleGroup[] {
   if (parsedFiles.length === 0) return [];
 
   // Nếu chỉ quét <= 6 file (VD: truyền changed_files 1–5 file hoặc repo nhỏ) -> viết 1 tài liệu chi tiết cho từng file
   if (parsedFiles.length <= 6) {
-    return parsedFiles.map((file) => {
+    const fileGroups: ModuleGroup[] = [];
+    for (const file of parsedFiles) {
+      const fileNodes = codeMap.filter((n) => n.file_path === file.file_path);
+      if (fileNodes.length > maxNodesPerDoc) {
+        fileGroups.push(...splitBucketByMaxNodes(file.file_path, [file], fileNodes, maxNodesPerDoc));
+        continue;
+      }
       const baseSlug = slugifyId(file.file_path) || "module";
       const fileName = path.posix.basename(file.file_path, path.posix.extname(file.file_path));
       const dirPart = path.posix.dirname(file.file_path);
       const docRelPath =
         dirPart && dirPart !== "." ? `modules/${dirPart}/${fileName}.md` : `modules/${fileName}.md`;
 
-      return {
+      fileGroups.push({
+        moduleKey: file.file_path,
+        baseSlug,
         docId: `doc_${baseSlug}`,
         docPath: docRelPath,
         targetLabel: file.file_path,
         files: [file],
-        nodes: codeMap.filter((n) => n.file_path === file.file_path),
-      };
+        nodes: fileNodes,
+      });
+    }
+    return fileGroups.slice(0, maxModuleDocs);
+  }
+
+  // Tính in-degree trên toàn bộ code_map để đo mức độ trung tâm của từng module
+  const inDegreeMap = new Map<string, number>();
+  for (const node of codeMap) {
+    for (const targetId of node.calls) {
+      inDegreeMap.set(targetId, (inDegreeMap.get(targetId) ?? 0) + 1);
+    }
+  }
+
+  // Gom file theo Chức năng nghiệp vụ (Feature-based qua Call Graph + Domain Stem, mặc định)
+  // hoặc theo thư mục nếu đặt DOC_GROUPING_MODE=folder trong .env
+  const groupingMode = (process.env.DOC_GROUPING_MODE ?? "feature").toLowerCase();
+  const buckets =
+    groupingMode === "folder"
+      ? (() => {
+          const folderBuckets = new Map<string, ParsedFile[]>();
+          for (const file of parsedFiles) {
+            const moduleKey = resolveModuleKey(file.file_path);
+            const existing = folderBuckets.get(moduleKey) ?? [];
+            existing.push(file);
+            folderBuckets.set(moduleKey, existing);
+          }
+          return folderBuckets;
+        })()
+      : groupFilesByBusinessFeature(parsedFiles, codeMap, resolveModuleKey);
+
+  // Sắp xếp module theo điểm Call Graph (ưu tiên logic nghiệp vụ lên trước DTO/getter-setter)
+  const scoredBuckets = [...buckets.entries()]
+    .map(([moduleKey, groupFiles]) => {
+      const fileSet = new Set(groupFiles.map((f) => f.file_path));
+      const moduleNodes = codeMap.filter((n) => fileSet.has(n.file_path));
+      const score = computeModuleImportanceScore(moduleNodes, inDegreeMap);
+      const chunks = splitBucketByMaxNodes(moduleKey, groupFiles, codeMap, maxNodesPerDoc);
+      return { moduleKey, fileCount: groupFiles.length, score, chunks };
+    })
+    .sort(
+      (a, b) =>
+        b.score - a.score ||
+        b.fileCount - a.fileCount ||
+        a.moduleKey.localeCompare(b.moduleKey)
+    );
+
+  // Chọn theo kiểu Round-Robin (phủ đều part 1 của tất cả module quan trọng nhất trước khi lấy part 2, 3...)
+  const selected: ModuleGroup[] = [];
+  let round = 0;
+  while (selected.length < maxModuleDocs) {
+    let addedInRound = false;
+    for (const bucket of scoredBuckets) {
+      const chunk = bucket.chunks[round];
+      if (chunk) {
+        selected.push(chunk);
+        addedInRound = true;
+        if (selected.length >= maxModuleDocs) break;
+      }
+    }
+    if (!addedInRound) break;
+    round += 1;
+  }
+
+  return selected;
+}
+
+/**
+ * Gộp (Map-Reduce) các tài liệu nhiều phần (`part1`, `part2`...) thuộc cùng 1 module
+ * thành 1 DocItem duy nhất để kết quả trả về cho Nhóm 2.2 (RAG) và preview.html rành mạch.
+ */
+function mergeMultiPartModuleDocs(
+  entries: Array<{ group: ModuleGroup; doc: DocItem }>
+): DocItem[] {
+  const byModule = new Map<string, Array<{ group: ModuleGroup; doc: DocItem }>>();
+  for (const entry of entries) {
+    const list = byModule.get(entry.group.moduleKey) ?? [];
+    list.push(entry);
+    byModule.set(entry.group.moduleKey, list);
+  }
+
+  const merged: DocItem[] = [];
+  for (const [moduleKey, parts] of byModule.entries()) {
+    if (parts.length === 1) {
+      merged.push(parts[0]!.doc);
+      continue;
+    }
+
+    const firstGroup = parts[0]!.group;
+    const baseSlug = firstGroup.baseSlug;
+
+    const combinedMarkdown = parts
+      .map((p, idx) => `## Phần ${idx + 1}: ${p.doc.title}\n\n${p.doc.markdown}`)
+      .join("\n\n---\n\n");
+
+    const mergedSpecsMap = new Map<string, string[]>();
+    for (const p of parts) {
+      for (const spec of p.doc.specs ?? []) {
+        const vals = mergedSpecsMap.get(spec.key) ?? [];
+        if (!vals.includes(spec.value)) {
+          vals.push(spec.value);
+        }
+        mergedSpecsMap.set(spec.key, vals);
+      }
+    }
+    const combinedSpecs = [...mergedSpecsMap.entries()].map(([key, values]) => ({
+      key,
+      value: values.join(" | "),
+    }));
+
+    const combinedSourceNodeIds = Array.from(
+      new Set(parts.flatMap((p) => p.doc.source_node_ids))
+    );
+
+    const bestMermaid =
+      parts
+        .map((p) => p.doc.mermaid_diagram)
+        .filter((m): m is string => Boolean(m && m.trim().length > 0))
+        .sort((a, b) => b.length - a.length)[0] ?? null;
+
+    merged.push({
+      doc_id: `doc_module_${baseSlug}`,
+      title: `Tài liệu kỹ thuật Module ${moduleKey}`,
+      path: `modules/${baseSlug}.md`,
+      ...(combinedSpecs.length > 0 ? { specs: combinedSpecs } : {}),
+      markdown: combinedMarkdown,
+      mermaid_diagram: bestMermaid,
+      source_node_ids: combinedSourceNodeIds,
     });
   }
 
-  // Nếu quét cả repo lớn (> 6 file) -> gom nhóm theo thư mục module cấp 1–2 để tối ưu số lượt gọi LLM
-  const buckets = new Map<string, ParsedFile[]>();
-  for (const file of parsedFiles) {
-    const parts = file.file_path.split("/");
-    let moduleKey: string;
-    if (parts.length === 1) {
-      moduleKey = "root";
-    } else if ((parts[0] === "src" || parts[0] === "server") && parts.length >= 3) {
-      moduleKey = `${parts[0]}/${parts[1]}`;
-    } else {
-      moduleKey = parts[0]!;
-    }
-    const existing = buckets.get(moduleKey) ?? [];
-    existing.push(file);
-    buckets.set(moduleKey, existing);
-  }
-
-  const sortedEntries = [...buckets.entries()].sort(
-    (a, b) => b[1].length - a[1].length || a[0].localeCompare(b[0])
-  );
-
-  return sortedEntries.slice(0, maxModuleDocs).map(([moduleKey, groupFiles]) => {
-    const fileSet = new Set(groupFiles.map((f) => f.file_path));
-    const slug = slugifyId(moduleKey) || "core";
-    return {
-      docId: `doc_module_${slug}`,
-      docPath: `modules/${slug}.md`,
-      targetLabel: moduleKey,
-      files: groupFiles,
-      nodes: codeMap.filter((n) => fileSet.has(n.file_path)),
-    };
-  });
+  return merged;
 }
 
 async function readBundledSourceContent(
@@ -358,6 +610,8 @@ export class TreeSitterJobQueue implements JobQueue {
   private readonly keepClonedRepo: boolean;
   private readonly llmProviderOverride?: LLMProviderName;
   private readonly maxModuleDocs: number;
+  private readonly maxNodesPerDoc: number;
+  private readonly interDocDelayMs: number;
 
   constructor(
     private readonly jobStore: JobStore,
@@ -370,6 +624,10 @@ export class TreeSitterJobQueue implements JobQueue {
     this.llmProviderOverride = options.llmProvider;
     this.maxModuleDocs =
       options.maxModuleDocs ?? Number(process.env.MAX_AI_MODULES ?? 8);
+    this.maxNodesPerDoc =
+      options.maxNodesPerDoc ?? Number(process.env.MAX_NODES_PER_DOC ?? DEFAULT_MAX_NODES_PER_DOC);
+    this.interDocDelayMs =
+      options.interDocDelayMs ?? Number(process.env.AI_INTER_DOC_DELAY_MS ?? 2500);
   }
 
   enqueue(jobId: string, payload: AnalyzeRequest): void {
@@ -426,16 +684,22 @@ export class TreeSitterJobQueue implements JobQueue {
       const moduleGroups = groupFilesForDocumentation(
         parsedFiles,
         codeMap,
-        this.maxModuleDocs
+        this.maxModuleDocs,
+        this.maxNodesPerDoc
       );
 
-      const moduleDocs: DocItem[] = [];
+      const generatedModuleEntries: Array<{ group: ModuleGroup; doc: DocItem }> = [];
       let totalToolCalls = 0;
       let totalAttemptsUsed = 0;
+      const isRealLlm = llm.getProviderInfo().provider !== "mock";
 
       for (let i = 0; i < moduleGroups.length; i++) {
         const group = moduleGroups[i];
         if (!group) continue;
+
+        if (i > 0 && isRealLlm && this.interDocDelayMs > 0) {
+          await new Promise((resolve) => setTimeout(resolve, this.interDocDelayMs));
+        }
 
         // Chỉ đọc fallback nội dung file trong trường hợp hiếm khi file không có bất kỳ hàm/route nào trong code_map
         // Còn mặc định (group.nodes.length > 0): CHỈ gửi code_map vào prompt, để AI tự gọi doc_ma_nguon_ham(node_id)!
@@ -479,8 +743,10 @@ export class TreeSitterJobQueue implements JobQueue {
 
         totalToolCalls += genResult.toolCallsCount;
         totalAttemptsUsed += genResult.attemptsUsed;
-        moduleDocs.push(genResult.document);
+        generatedModuleEntries.push({ group, doc: genResult.document });
       }
+
+      const moduleDocs = mergeMultiPartModuleDocs(generatedModuleEntries);
 
       const overviewDoc = buildOverviewDocument({
         repoUrl: payload.repo_url,

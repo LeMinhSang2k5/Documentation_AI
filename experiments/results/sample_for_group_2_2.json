@@ -69,20 +69,64 @@
   "documents": [
     {
       "doc_id": "doc_usesettings",
-      "title": "Tài liệu kỹ thuật src/hooks/useSettings.js",
+      "title": "Tài liệu kỹ thuật hook useSettings",
       "path": "modules/useSettings.md",
-      "markdown": "# Tài liệu kỹ thuật useSettings\n\nHàm `useSettings` là một Custom Hook trong React dùng để quản lý cấu hình người dùng, thông tin tài khoản, trạng thái tải, lưu trữ và sao lưu dữ liệu.\n\n## Tổng quan\n\n- File: `src/hooks/useSettings.js`\n- Hook chính: `useSettings`\n\n## Mô tả hàm `useSettings`\n\nHàm `useSettings(isAuthenticated)` nhận tham số `isAuthenticated` để kiểm tra trạng thái xác thực và thực hiện:\n- Quản lý state `settings`, `account`, `loading`, `saving`, và `error`.\n- Cung cấp hàm `reload` để tải lại cấu hình từ server khi đã đăng nhập.\n- Cung cấp hàm `saveSettings` để cập nhật cấu hình.\n- Cung cấp hàm `saveAccount` để cập nhật thông tin tài khoản.\n- Cung cấp hàm `exportBackup` để tải xuống file sao lưu cấu hình.\n\n### Các hàm được gọi nội bộ\n- `mergeClientSettings`: Hợp nhất cấu hình client.\n- `applyThemeMode`: Áp dụng chế độ giao diện.\n- `saveAuth`: Lưu thông tin xác thực.",
-      "mermaid_diagram": "flowchart TD\n    A[\"useSettings\"] --> B[\"reload\"]\n    A --> C[\"saveSettings\"]\n    A --> D[\"saveAccount\"]\n    A --> E[\"exportBackup\"]",
+      "specs": [
+        {
+          "key": "Mục đích & Vai trò",
+          "value": "Module `src/hooks/useSettings.js` cung cấp custom React hook `useSettings` quản lý toàn bộ trạng thái cài đặt ứng dụng (settings), thông tin tài khoản người dùng (account), trạng thái tải dữ liệu, lưu trữ, xử lý lỗi, đồng thời cung cấp các phương thức thao tác API như tải lại, lưu cài đặt, cập nhật tài khoản và xuất bản sao lưu dữ liệu."
+        },
+        {
+          "key": "Giao diện & Tham số (Inputs/Outputs)",
+          "value": "- Tham số đầu vào: `isAuthenticated` (kiểu boolean) - trạng thái xác thực của người dùng hiện tại.\n- Giá trị trả về (Object): Các state gồm `settings`, `account`, `loading`, `saving`, `error` và các hàm xử lý `reload`, `setSettings`, `setAccount`, `saveSettings`, `saveAccount`, `exportBackup`."
+        },
+        {
+          "key": "Đặc tả chi tiết từng hàm",
+          "value": "- `useSettings`: Khởi tạo các state phản ứng gồm `settings`, `account`, `loading`, `saving`, `error`. Sử dụng các hàm `useCallback` bao gồm `reload`, `saveSettings`, `saveAccount`, và `exportBackup` để tối ưu hiệu năng render.\n- `reload`: Kiểm tra nếu `isAuthenticated` là true thì bật `loading` = true, gọi API GET `/settings`, cập nhật state `settings` và `account`, sau đó áp dụng chế độ giao diện. Bắt lỗi và lưu vào state `error`, cuối cùng tắt `loading` trong khối `finally`.\n- `saveSettings`: Bật `saving` = true, gọi API PATCH `/settings`, merge dữ liệu nhận về, cập nhật state `settings`, áp dụng theme mới và trả về kết quả đã merge.\n- `saveAccount`: Bật `saving` = true, gọi API PATCH `/settings/account`, cập nhật state `account`, cập nhật token/auth local nếu tồn tại token.\n- `exportBackup`: Lấy `token` từ `localStorage`, thực hiện `fetch` tới `/api/settings/export`, xử lý phản hồi thành blob và tạo đối tượng tải xuống file `taskflow-sao-luu.json` cho trình duyệt."
+        },
+        {
+          "key": "Luồng gọi hàm & Phụ thuộc",
+          "value": "- `useSettings` phụ thuộc vào các hàm tiện ích dữ liệu, các hàm gọi API client.\n- Hook `useEffect` tự động kích hoạt gọi `reload` khi dependency thay đổi (đặc biệt khi `isAuthenticated` thay đổi)."
+        },
+        {
+          "key": "Kiểm tra hợp lệ & Xử lý lỗi",
+          "value": "- Chặn biên xác thực: `reload` thoát sớm nếu `isAuthenticated` bằng false.\n- Xử lý lỗi toàn cục qua khối `try/catch/finally`: Các hàm API ghi nhận thông báo lỗi vào state `error`, đảm bảo reset trạng thái `loading` hoặc `saving` về `false` thông qua khối `finally`, và ném lại lỗi đối với các thao tác lưu dữ liệu để component gọi có thể xử lý thêm nếu cần."
+        }
+      ],
+      "markdown": "## 1. Giới thiệu chung\nHook `useSettings` quản lý trạng thái cài đặt người dùng, thông tin tài khoản, gọi các API liên quan đến settings, account và cơ chế xuất file backup trong ứng dụng TaskFlow.\n\n## 2. Các hàm và Trạng thái chính\n- **State nội bộ**: `settings`, `account`, `loading`, `saving`, `error`.\n- **Phương thức hành động**: `reload`, `saveSettings`, `saveAccount`, `exportBackup`.\n\n## 3. Luồng hoạt động\nKhi hook được khởi tạo với trạng thái đăng nhập, nó sẽ tự động đồng bộ và tải dữ liệu cấu hình từ máy chủ, đồng thời tự động cập nhật giao diện. Các thao tác lưu cài đặt hoặc tài khoản đều tự động quản lý cờ `saving` và bắt lỗi bằng `try/catch`.",
+      "mermaid_diagram": "flowchart TD\n    A[\"Khởi tạo hook useSettings\"] --> B[\"Merge cấu hình client mặc định\"]\n    B --> C{\"isAuthenticated?\"}\n    C -- \"Có\" --> D[\"Gọi reload tải dữ liệu từ API\"]\n    C -- \"Không\" --> E[\"Bỏ qua tải dữ liệu\"]\n    D --> F[\"Cập nhật state settings, account, apply theme\"]\n    \n    subgraph \"Các hành động (Actions)\"\n        G[\"saveSettings(nextSettings)\"] --> H[\"PATCH /settings\"]\n        I[\"saveAccount(payload)\"] --> J[\"PATCH /settings/account\"]\n        K[\"exportBackup()\"] --> L[\"Fetch /api/settings/export và tải tệp JSON\"]\n    end",
       "source_node_ids": [
         "fn_src_hooks_use_settings_use_settings"
       ]
     },
     {
       "doc_id": "doc_client",
-      "title": "Tài liệu API Client src/api/client.js",
+      "title": "Tài liệu kỹ thuật module src/api/client.js",
       "path": "modules/client.md",
-      "markdown": "Tài liệu này mô tả các hàm tiện ích và quản lý xác thực trong `src/api/client.js`.\n\n## Các hàm chính\n- `getToken`: Lấy mã thông báo (token) từ localStorage.\n- `request`: Thực hiện gọi fetch API, tự động đính kèm header Authorization nếu có token, đồng thời xử lý kết quả trả về.\n- `saveAuth`: Lưu thông tin xác thực (token và user) vào localStorage.\n- `clearAuth`: Xóa thông tin xác thực khỏi localStorage.\n- `loadSavedAuth`: Tải thông tin xác thực đã lưu từ localStorage.",
-      "mermaid_diagram": "flowchart TD\nfn_src_api_client_request --> fn_src_api_client_get_token",
+      "specs": [
+        {
+          "key": "Mục đích & Vai trò",
+          "value": "Module `src/api/client.js` đóng vai trò là tầng giao tiếp API HTTP chính cho ứng dụng frontend. Module cung cấp tiện ích gọi `request` (tích hợp `fetch`), quản lý xác thực người dùng (`getToken`, `saveAuth`, `clearAuth`, `loadSavedAuth`), và các phương thức REST trợ giúp."
+        },
+        {
+          "key": "Giao diện & Tham số (Inputs/Outputs)",
+          "value": "- `getToken()`: Không có tham số đầu vào. Trả về `string | null` chứa token từ `localStorage`.\n- `request(path, options)`: Nhận `path` (chuỗi đường dẫn API) và `options` (đối tượng cấu hình). Trả về `Promise<any>` dữ liệu JSON hoặc `null` nếu phản hồi là 204.\n- `saveAuth({ token, user })`: Nhận đối tượng chứa `token` và `user`. Không trả về giá trị (`void`).\n- `clearAuth()`: Không có tham số. Không trả về giá trị (`void`).\n- `loadSavedAuth()`: Không có tham số. Trả về đối tượng chứa `token` và `user` hoặc `null`."
+        },
+        {
+          "key": "Đặc tả chi tiết từng hàm",
+          "value": "- `getToken`: Truy vấn `localStorage` để lấy mã xác thực hiện tại.\n- `request`: Xây dựng header bao gồm `Content-Type: application/json`, tự động đính kèm `Authorization: Bearer <token>` nếu có token thông qua hàm `getToken`, và gộp các option bổ sung. Thực hiện gọi `fetch` tới URL được định nghĩa bởi `BASE` và `path`. Xử lý đặc biệt nếu phản hồi trả về mã 204. Cố gắng phân tích cú pháp JSON; nếu lỗi, gán dữ liệu lỗi mặc định. Nếu phản hồi không thành công, khởi tạo đối tượng lỗi `Error` và ném ngoại lệ.\n- `saveAuth`: Lưu `token` và chuỗi JSON của `user` vào `localStorage`.\n- `clearAuth`: Xóa các khóa phiên làm việc khỏi `localStorage`.\n- `loadSavedAuth`: Lấy `token` và chuỗi `user` thô từ `localStorage`. Kiểm tra tính hợp lệ, sau đó phân tích cú pháp JSON của `user` bên trong khối kiểm tra an toàn."
+        },
+        {
+          "key": "Luồng gọi hàm & Phụ thuộc",
+          "value": "- Hàm `request` gọi tới `getToken` để lấy token xác thực.\n- Các hàm `getToken`, `saveAuth`, `clearAuth`, và `loadSavedAuth` tương tác trực tiếp với `localStorage` của trình duyệt.\n- Hằng số `BASE` phụ thuộc vào biến môi trường `import.meta.env.VITE_API_URL`."
+        },
+        {
+          "key": "Kiểm tra hợp lệ & Xử lý lỗi",
+          "value": "- Kiểm tra phản hồi HTTP và mã trạng thái. Xử lý mã `204 No Content` bằng cách trả về `null`.\n- Bắt ngoại lệ phân tích cú pháp JSON bằng `try/catch` trong `request` và `loadSavedAuth` nhằm tránh sập ứng dụng khi dữ liệu lưu trữ hoặc phản hồi không phải là JSON hợp lệ.\n- Ném đối tượng `Error` tùy chỉnh kèm trạng thái khi request thất bại."
+        }
+      ],
+      "markdown": "## Tổng quan\n\nModule `src/api/client.js` chịu trách nhiệm cấu hình kết nối API backend, xử lý việc đính kèm Token xác thực vào các HTTP request, và quản lý trạng thái phiên làm việc của người dùng trong `localStorage`.\n\n## Chi tiết các hàm\n\n### 1. `getToken()`\n- **Mô tả**: Lấy mã xác thực (JWT token) hiện tại từ `localStorage`.\n- **Đầu ra**: `string | null`.\n\n### 2. `request(path, options = {})`\n- **Mô tả**: Hàm cốt lõi thực hiện HTTP request sử dụng API `fetch`.\n- **Tham số**:\n  - `path`: Đường dẫn endpoint.\n  - `options`: Các tùy chọn cấu hình cho `fetch`.\n- **Logic**:\n  1. Gọi `getToken` để lấy token.\n  2. Xây dựng tiêu đề (`headers`) bao gồm `Content-Type: application/json`, tự động gắn `Authorization: Bearer <token>` nếu tồn tại token.\n  3. Thực hiện `fetch` tới `${BASE}${path}`.\n  4. Xử lý phản hồi `204 No Content` trả về `null`.\n  5. Đọc phản hồi dưới dạng JSON; nếu phân tích lỗi, gán giá trị mặc định.\n  6. Kiểm tra trạng thái phản hồi, nếu có lỗi tạo đối tượng `Error` và ném ra ngoài.\n\n### 3. Quản lý xác thực (`saveAuth`, `clearAuth`, `loadSavedAuth`)\n- `saveAuth({ token, user })`: Lưu thông tin `token` và `user` vào `localStorage`.\n- `clearAuth()`: Xóa sạch thông tin phiên làm việc khỏi `localStorage`.\n- `loadSavedAuth()`: Tải lại thông tin phiên làm việc, phân tích cú pháp JSON của `user` an toàn bằng `try/catch`.",
+      "mermaid_diagram": "flowchart TD\n    subgraph Client[\"src/api/client.js\"]\n        direction TB\n        GT[\"getToken\"]\n        REQ[\"request\"]\n        SA[\"saveAuth\"]\n        CA[\"clearAuth\"]\n        LSA[\"loadSavedAuth\"]\n    end\n\n    REQ --> GT\n    SA --> LS[\"localStorage\"]\n    CA --> LS\n    LSA --> LS\n    GT --> LS\n    REQ --> FETCH[\"fetch\"]",
       "source_node_ids": [
         "fn_src_api_client_get_token",
         "fn_src_api_client_request",
@@ -95,8 +139,30 @@
       "doc_id": "doc_usetasks",
       "title": "Tài liệu kỹ thuật hook useTasks",
       "path": "modules/useTasks.md",
-      "markdown": "# useTasks\n\nHook `useTasks` (`fn_src_hooks_use_tasks_use_tasks`) quản lý trạng thái và các thao tác CRUD cho danh sách công việc (tasks) trong ứng dụng.\n\n## Tham số\n- `isAuthenticated`: Biểu thị trạng thái xác thực của người dùng.\n- `options` (đối tượng): Tùy chọn cấu hình\n  - `addToBottom` (boolean): Nếu là `true`, công việc mới sẽ được thêm vào cuối danh sách; ngược lại sẽ được thêm lên đầu.\n\n## Giá trị trả về\nTrả về một đối tượng chứa:\n- `tasks`: Mảng danh sách công việc hiện tại.\n- `loading`: Trạng thái đang tải dữ liệu.\n- `error`: Thông báo lỗi (nếu có).\n- `addTask`: Hàm thêm công việc mới.\n- `toggleTask`: Hàm thay đổi trạng thái hoàn thành của công việc.\n- `updateTask`: Hàm cập nhật thông tin công việc.\n- `deleteTask`: Hàm xóa công việc.\n- `reload`: Hàm tải lại danh sách công việc.",
-      "mermaid_diagram": "flowchart TD\n    A[\"useTasks\"] --> B[\"reload\"]\n    A --> C[\"addTask\"]\n    A --> D[\"toggleTask\"]\n    A --> E[\"updateTask\"]\n    A --> F[\"deleteTask\"]",
+      "specs": [
+        {
+          "key": "Mục đích & Vai trò",
+          "value": "Hook `useTasks` cung cấp các logic quản lý state và thao tác CRUD đồng bộ với API cho danh sách công việc (tasks), bao gồm việc tải danh sách, thêm, sửa, đổi trạng thái hoàn thành và xóa task khi người dùng đã được xác thực."
+        },
+        {
+          "key": "Giao diện & Tham số (Inputs/Outputs)",
+          "value": "Đầu vào gồm `isAuthenticated` (boolean xác định trạng thái đăng nhập) và `options` (đối tượng cấu hình tùy chọn, chứa `addToBottom` kiểu boolean mặc định là `false`). Đầu ra trả về một đối tượng chứa các state (`tasks`, `loading`, `error`) và các hàm thao tác (`addTask`, `toggleTask`, `updateTask`, `deleteTask`, `reload`)."
+        },
+        {
+          "key": "Đặc tả chi tiết từng hàm",
+          "value": "Bên trong `useTasks`, hàm `reload` gọi API lấy danh sách task khi `isAuthenticated` đúng; `addTask` gọi API POST tạo mới task và thêm vào danh sách (ở đầu hoặc cuối tùy `addToBottom`); `toggleTask` gọi API PATCH đổi trạng thái hoàn thành; `updateTask` gọi API PATCH cập nhật nội dung task; `deleteTask` gọi API DELETE xóa task dựa theo `_id`."
+        },
+        {
+          "key": "Luồng gọi hàm & Phụ thuộc",
+          "value": "Hook sử dụng React hooks chuẩn (`useState`, `useEffect`, `useCallback`) kết hợp với client HTTP tùy chỉnh (`api` từ `../api/client`). `useEffect` tự động kích hoạt gọi `reload` ngay khi hook khởi tạo hoặc `reload` thay đổi."
+        },
+        {
+          "key": "Kiểm tra hợp lệ & Xử lý lỗi",
+          "value": "Hàm `reload` có cơ chế kiểm tra `if (!isAuthenticated) return` để chặn việc gọi API khi chưa đăng nhập. Quá trình gọi API tải dữ liệu được bọc trong khối `try/catch/finally` để ghi nhận lỗi vào state `error` và đảm bảo trạng thái `loading` luôn được thiết lập lại chính xác."
+        }
+      ],
+      "markdown": "## Tổng quan\nHook `useTasks` đóng gói toàn bộ logic nghiệp vụ liên quan đến việc quản lý danh sách công việc (tasks), giao tiếp với máy chủ thông qua các phương thức của `api` client.\n\n## Tham số đầu vào và Đầu ra\n- **Tham số (`isAuthenticated`, `options`)**: \n  - `isAuthenticated`: Boolean kiểm tra người dùng đã xác thực hay chưa.\n  - `options`: Đối tượng cấu hình, hỗ trợ thuộc tính `addToBottom` (mặc định `false`).\n- **Giá trị trả về**: Đối tượng chứa các state `tasks`, `loading`, `error` cùng các hàm điều khiển `addTask`, `toggleTask`, `updateTask`, `deleteTask`, `reload` được tối ưu bằng `useCallback`.\n\n## Chi tiết các hàm thao tác\n- `reload`: Thực hiện lấy danh sách công việc từ `/tasks` nếu người dùng đã đăng nhập, quản lý trạng thái `loading` và lưu thông điệp lỗi vào `error` khi xảy ra ngoại lệ.\n- `addTask`: Gửi yêu cầu POST tới `/tasks` với dữ liệu truyền vào và cập nhật state `tasks` (thêm vào cuối nếu `addToBottom` là true, ngược lại thêm vào đầu).\n- `toggleTask`: Gửi yêu cầu PATCH tới `/tasks/{id}/toggle` để đảo trạng thái công việc và cập nhật danh sách trong state.\n- `updateTask`: Gửi yêu cầu PATCH tới `/tasks/{id}` để cập nhật thông tin công việc.\n- `deleteTask`: Gửi yêu cầu DELETE tới `/tasks/{id}` để xóa công việc khỏi cơ sở dữ liệu và state cục bộ.\n\n## Xử lý ngoại lệ và Biên an toàn\nHook kiểm tra điều kiện xác thực `isAuthenticated` trước mỗi lần tải dữ liệu, sử dụng `try...catch...finally` trong hàm `reload` nhằm xử lý lỗi mạng hoặc lỗi phản hồi từ API một cách mượt mà.",
+      "mermaid_diagram": "flowchart TD\n    A[\"Kiểm tra trạng thái xác thực (isAuthenticated)\"] --> B{\"Đã đăng nhập?\"}\n    B -->|Không| C[\"Bỏ qua tải dữ liệu\"]\n    B -->|Có| D[\"Gọi api.get(/tasks)\"]\n    D --> E{\"Thành công?\"}\n    E -->|Có| F[\"Cập nhật danh sách tasks\"]\n    E -->|Lỗi| G[\"Lưu thông báo lỗi (setError)\"]\n    F --> H[\"Hoàn tất (setLoading false)\"]\n    G --> H",
       "source_node_ids": [
         "fn_src_hooks_use_tasks_use_tasks"
       ]

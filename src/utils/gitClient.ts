@@ -62,7 +62,8 @@ export function parseSafeGithubRepoUrl(rawUrl: string): ParsedGithubRepo | null 
 export async function cloneGithubRepository(
   rawRepoUrl: string,
   targetDir: string,
-  requestedBranch?: string
+  requestedBranch?: string,
+  requestedCommitSha?: string | null
 ): Promise<ClonedRepositoryInfo> {
   const safeRepo = parseSafeGithubRepoUrl(rawRepoUrl);
   if (!safeRepo) {
@@ -109,6 +110,31 @@ export async function cloneGithubRepository(
     );
   }
 
+  const trimmedCommit = requestedCommitSha?.trim();
+  if (trimmedCommit && /^[0-9a-fA-F]{6,40}$/.test(trimmedCommit)) {
+    const { stdout: currentHead } = await execFileAsync(
+      "git",
+      ["-C", resolvedTarget, "rev-parse", "HEAD"],
+      { env: gitEnv, timeout: 10_000 }
+    );
+    if (!currentHead.trim().toLowerCase().startsWith(trimmedCommit.toLowerCase())) {
+      try {
+        await execFileAsync(
+          "git",
+          ["-C", resolvedTarget, "fetch", "--depth", "1", "origin", trimmedCommit],
+          { env: gitEnv, timeout: 60_000 }
+        );
+        await execFileAsync(
+          "git",
+          ["-C", resolvedTarget, "checkout", "--detach", "FETCH_HEAD"],
+          { env: gitEnv, timeout: 10_000 }
+        );
+      } catch {
+        // Nếu server remote không cho fetch trực tiếp theo short SHA thì giữ nguyên HEAD hiện tại
+      }
+    }
+  }
+
   const [{ stdout: shaOut }, { stdout: branchOut }] = await Promise.all([
     execFileAsync("git", ["-C", resolvedTarget, "rev-parse", "HEAD"], {
       env: gitEnv,
@@ -120,9 +146,13 @@ export async function cloneGithubRepository(
     }),
   ]);
 
+  const resolvedBranch = branchOut.trim();
   return {
     repoDir: resolvedTarget,
-    branch: branchOut.trim() || trimmedBranch || "main",
+    branch:
+      resolvedBranch && resolvedBranch !== "HEAD"
+        ? resolvedBranch
+        : trimmedBranch || "main",
     commitSha: shaOut.trim(),
   };
 }

@@ -14,6 +14,17 @@ const TS_JS_EXTENSIONS = [
   ".cjs",
 ];
 
+const HTTP_ROUTE_METHODS = new Set([
+  "get",
+  "post",
+  "put",
+  "patch",
+  "delete",
+  "options",
+  "head",
+  "all",
+]);
+
 function stripQuotes(raw: string): string {
   if (
     (raw.startsWith('"') && raw.endsWith('"')) ||
@@ -495,11 +506,102 @@ function extractCommonJsRequire(declNode: Node, imports: ParsedImport[]): void {
   }
 }
 
+function tryExtractRouterUseMiddlewares(
+  expr: Node,
+  routerMiddlewares: string[]
+): boolean {
+  if (expr.type !== "call_expression") return false;
+  const callee = expr.childForFieldName("function");
+  if (!callee || callee.type !== "member_expression") return false;
+
+  const prop = callee.childForFieldName("property");
+  if (!prop || prop.text !== "use") return false;
+
+  const args = expr.childForFieldName("arguments");
+  if (!args) return false;
+
+  for (const arg of args.namedChildren) {
+    if (!arg) continue;
+    if (arg.type === "identifier" || arg.type === "member_expression") {
+      const name = formatCallee(arg);
+      if (name && !routerMiddlewares.includes(name)) {
+        routerMiddlewares.push(name);
+      }
+    }
+  }
+  return true;
+}
+
+function tryExtractExpressRoute(
+  stmtNode: Node,
+  expr: Node,
+  functions: ParsedFunction[],
+  routerMiddlewares: string[],
+  parentName?: string
+): boolean {
+  if (expr.type !== "call_expression") return false;
+  const callee = expr.childForFieldName("function");
+  if (!callee || callee.type !== "member_expression") return false;
+
+  const prop = callee.childForFieldName("property");
+  if (!prop) return false;
+  const methodLower = prop.text;
+  if (!HTTP_ROUTE_METHODS.has(methodLower)) return false;
+
+  const argsNode = expr.childForFieldName("arguments");
+  if (!argsNode) return false;
+  const namedArgs = argsNode.namedChildren.filter((c): c is Node => c !== null);
+  if (namedArgs.length < 2) return false;
+
+  const firstArg = namedArgs[0];
+  const lastArg = namedArgs[namedArgs.length - 1];
+  if (!firstArg || !lastArg) return false;
+  if (firstArg.type !== "string" && firstArg.type !== "template_string") return false;
+
+  const routePath = stripQuotes(firstArg.text).trim();
+  if (!routePath.startsWith("/")) return false;
+
+  if (lastArg.type !== "arrow_function" && lastArg.type !== "function_expression") {
+    return false;
+  }
+
+  const routeTitle = `${methodLower.toUpperCase()} ${routePath}`;
+  const fullName = parentName ? `${parentName}.${routeTitle}` : routeTitle;
+  const bodyNode = lastArg.childForFieldName("body");
+  const rawCalls = new Set<string>(routerMiddlewares);
+
+  // Ghi nhận cả các middleware truyền trực tiếp giữa path và handler: router.post("/x", requireAuth, handler)
+  for (let i = 1; i < namedArgs.length - 1; i += 1) {
+    const mid = namedArgs[i];
+    if (!mid) continue;
+    const midName = formatCallee(mid);
+    if (midName) rawCalls.add(midName);
+  }
+
+  for (const call of extractRawCalls(bodyNode, true)) {
+    rawCalls.add(call);
+  }
+
+  functions.push({
+    name: fullName,
+    kind: lastArg.type === "arrow_function" ? "arrow_function" : "function",
+    start_line: stmtNode.startPosition.row + 1,
+    end_line: expr.endPosition.row + 1,
+    params: extractParams(lastArg),
+    is_exported: true,
+    raw_calls: Array.from(rawCalls),
+  });
+
+  extractNestedFunctions(bodyNode, fullName, functions);
+  return true;
+}
+
 function collectTopLevelStatement(
   stmt: Node,
   isExported: boolean,
   imports: ParsedImport[],
-  functions: ParsedFunction[]
+  functions: ParsedFunction[],
+  routerMiddlewares: string[]
 ): void {
   switch (stmt.type) {
     case "import_statement": {
@@ -518,7 +620,7 @@ function collectTopLevelStatement(
 
       const declaration = stmt.childForFieldName("declaration");
       if (declaration) {
-        collectTopLevelStatement(declaration, true, imports, functions);
+        collectTopLevelStatement(declaration, true, imports, functions, routerMiddlewares);
         return;
       }
 
@@ -566,7 +668,17 @@ function collectTopLevelStatement(
 
     case "expression_statement": {
       const expr = stmt.namedChildren.find((c): c is Node => c !== null);
-      if (!expr || expr.type !== "assignment_expression") return;
+      if (!expr) return;
+
+      if (expr.type === "call_expression") {
+        if (tryExtractExpressRoute(stmt, expr, functions, routerMiddlewares)) {
+          return;
+        }
+        tryExtractRouterUseMiddlewares(expr, routerMiddlewares);
+        return;
+      }
+
+      if (expr.type !== "assignment_expression") return;
 
       const left = expr.childForFieldName("left");
       const right = expr.childForFieldName("right");
@@ -575,6 +687,11 @@ function collectTopLevelStatement(
 
       const leftText = left.text;
       let exportedName: string | null = null;
+      let className: string | undefined;
+      let kind: ParsedFunction["kind"] =
+        right.type === "arrow_function" ? "arrow_function" : "function";
+      let exportedFlag = true;
+
       if (leftText === "module.exports") {
         const fnName = right.childForFieldName("name")?.text;
         exportedName = fnName ?? "default";
@@ -582,17 +699,28 @@ function collectTopLevelStatement(
         exportedName = leftText.slice("exports.".length);
       } else if (leftText.startsWith("module.exports.")) {
         exportedName = leftText.slice("module.exports.".length);
+      } else {
+        const protoMatch = /^([A-Za-z_$][\w$]*)\.(?:methods|statics|prototype)\.([A-Za-z_$][\w$]*)$/.exec(
+          leftText
+        );
+        if (protoMatch?.[1] && protoMatch[2]) {
+          className = protoMatch[1];
+          exportedName = `${protoMatch[1]}.${protoMatch[2]}`;
+          kind = "method";
+          exportedFlag = true;
+        }
       }
 
       if (exportedName) {
         const bodyNode = right.childForFieldName("body");
         functions.push({
           name: exportedName,
-          kind: right.type === "arrow_function" ? "arrow_function" : "function",
+          kind,
+          ...(className ? { class_name: className } : {}),
           start_line: stmt.startPosition.row + 1,
           end_line: right.endPosition.row + 1,
           params: extractParams(right),
-          is_exported: true,
+          is_exported: exportedFlag,
           raw_calls: extractRawCalls(bodyNode, true),
         });
         extractNestedFunctions(bodyNode, exportedName, functions);
@@ -635,10 +763,11 @@ export const typescriptAdapter: LanguageAdapter = {
   extract(rootNode: Node): ExtractedAstData {
     const imports: ParsedImport[] = [];
     const functions: ParsedFunction[] = [];
+    const routerMiddlewares: string[] = [];
 
     for (const stmt of rootNode.namedChildren) {
       if (!stmt) continue;
-      collectTopLevelStatement(stmt, false, imports, functions);
+      collectTopLevelStatement(stmt, false, imports, functions, routerMiddlewares);
     }
 
     return { imports, functions };

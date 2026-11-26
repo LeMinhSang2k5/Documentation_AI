@@ -50,6 +50,7 @@ export interface RepositoryCodeMapResult {
   projectInfo: DetectedProjectInfo;
   parsedFiles: ParsedFile[];
   codeMap: CodeMapNode[];
+  fullCodeMap: CodeMapNode[];
 }
 
 export async function analyzeRepositoryToCodeMap(
@@ -71,7 +72,12 @@ export async function analyzeRepositoryToCodeMap(
   });
 
   if (changedFiles.length === 0) {
-    return { projectInfo, parsedFiles: allParsedFiles, codeMap: fullCodeMap };
+    return {
+      projectInfo,
+      parsedFiles: allParsedFiles,
+      codeMap: fullCodeMap,
+      fullCodeMap,
+    };
   }
 
   const validChanged = new Set(await filterExistingSourceFiles(repoRoot, changedFiles));
@@ -82,5 +88,6 @@ export async function analyzeRepositoryToCodeMap(
     projectInfo,
     parsedFiles: filteredParsed,
     codeMap: filteredCodeMap,
+    fullCodeMap,
   };
 }

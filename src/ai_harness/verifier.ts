@@ -1,3 +1,4 @@
+import fs from "node:fs/promises";
 import path from "node:path";
 import type { CodeMapNode, DocItem, DocSpecItem } from "../types/index.js";
 import type {
@@ -80,10 +81,97 @@ function ensureDetailedMarkdown(markdown: string, specs: DocSpecItem[]): string 
   return trimmed;
 }
 
+function escapeRegExp(input: string): string {
+  return input.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+/**
+ * Kiểm tra tổng quát (không phụ thuộc ngôn ngữ/framework):
+ * Ký hiệu (property như `user.id`, hằng số enum như `Role.MEMBER`, biến cấu hình...)
+ * có xuất hiện nguyên văn với ranh giới định danh trong mã nguồn thật của module hay không.
+ */
+function appearsInSourceCode(symbol: string, sourceText: string): boolean {
+  if (!sourceText || !symbol) return false;
+  const pattern = new RegExp(`(?<![A-Za-z0-9_$])${escapeRegExp(symbol)}(?![A-Za-z0-9_$])`);
+  return pattern.test(sourceText);
+}
+
+/**
+ * Chuẩn hóa dấu backtick cho các ký hiệu CÓ THẬT trong mã nguồn nhưng nằm ngoài `code_map`
+ * (thư viện ngoài như `LocalDate.now`, `axios.post`, property `user.id`, prop `onClose`...):
+ * chuyển `` `X` `` -> `**X**` để giữ nguyên 100% thông tin kỹ thuật nhưng bảo đảm backtick chỉ
+ * dành riêng cho hàm/lớp có trong `code_map` (tránh báo nhầm khi preview chạy offline).
+ * Ký hiệu bịa thật (không có trong code gốc) vẫn giữ nguyên backtick để `verifyDocument` bắt lỗi.
+ */
+function normalizeVerifiedExternalBackticks(
+  text: string,
+  validSymbolNames: Set<string>,
+  referenceSourceText?: string
+): string {
+  if (!referenceSourceText || !text) return text;
+
+  // Tách các khối fenced code block ```...``` ra để không đụng vào code mẫu
+  const segments = text.split(/(```[\s\S]*?```)/g);
+  return segments
+    .map((segment, idx) => {
+      if (idx % 2 === 1) return segment; // Giữ nguyên fenced code block
+      return segment.replace(/`([^`\r\n]{2,80})`/g, (fullMatch, rawInner: string) => {
+        const raw = rawInner.trim();
+        if (!raw || raw.startsWith("@") || raw.includes("/") || raw.includes("\\") || /\s/.test(raw)) {
+          return fullMatch;
+        }
+        const parenIdx = raw.indexOf("(");
+        const cleaned = (parenIdx !== -1 ? raw.slice(0, parenIdx) : raw).trim();
+        if (!cleaned) return fullMatch;
+
+        if (isKnownSymbol(cleaned, validSymbolNames)) return fullMatch;
+        const rootIdent = cleaned.split(".")[0];
+        if (
+          IGNORED_COMMON_IDENTIFIERS.has(cleaned) ||
+          (rootIdent && IGNORED_COMMON_IDENTIFIERS.has(rootIdent))
+        ) {
+          return fullMatch;
+        }
+
+        if (appearsInSourceCode(cleaned, referenceSourceText)) {
+          return `**${raw}**`;
+        }
+        return fullMatch;
+      });
+    })
+    .join("");
+}
+
+async function loadReferenceSourceForNodes(
+  nodes: CodeMapNode[],
+  repoDir?: string,
+  fallbackSourceContent?: string
+): Promise<string | undefined> {
+  const chunks: string[] = [];
+  if (fallbackSourceContent) {
+    chunks.push(fallbackSourceContent);
+  }
+
+  if (repoDir) {
+    const uniqueFiles = Array.from(new Set(nodes.map((n) => n.file_path)));
+    for (const relPath of uniqueFiles) {
+      try {
+        const content = await fs.readFile(path.resolve(repoDir, relPath), "utf-8");
+        chunks.push(content);
+      } catch {
+        // Bỏ qua file không đọc được
+      }
+    }
+  }
+
+  return chunks.length > 0 ? chunks.join("\n") : undefined;
+}
+
 export function verifyDocument(
   doc: Pick<DocItem, "markdown" | "mermaid_diagram" | "source_node_ids" | "specs">,
   codeMap: CodeMapNode[],
-  allowedReferenceCodeMap?: CodeMapNode[]
+  allowedReferenceCodeMap?: CodeMapNode[],
+  referenceSourceText?: string
 ): VerificationResult {
   const validNodeIds = new Set(codeMap.map((n) => n.node_id));
   const symbolPool =
@@ -99,7 +187,9 @@ export function verifyDocument(
 
   const extractedSymbols = extractReferencedCodeSymbols(combinedText, validSymbolNames);
   const hallucinatedSymbols = extractedSymbols.filter(
-    (sym) => !isKnownSymbol(sym, validSymbolNames)
+    (sym) =>
+      !isKnownSymbol(sym, validSymbolNames) &&
+      !(referenceSourceText && appearsInSourceCode(sym, referenceSourceText))
   );
 
   const mermaidCheck = kiem_tra_cu_phap_so_do(doc.mermaid_diagram);
@@ -165,6 +255,11 @@ export async function generateDocumentWithSelfCheck(params: {
     params.codeMap.filter((n) => n.file_path === params.targetFilePath);
   const nodesForPrompt = relevantNodes.length > 0 ? relevantNodes : params.codeMap;
   const useCodeMapOnly = Boolean(params.codeMapOnly || !params.sourceContent);
+  const referenceSourceText = await loadReferenceSourceForNodes(
+    nodesForPrompt,
+    params.repoDir,
+    params.sourceContent
+  );
 
   const baseUserPrompt = useCodeMapOnly
     ? [
@@ -242,8 +337,20 @@ export async function generateDocumentWithSelfCheck(params: {
       ? stripMarkdownFence(parsed.mermaid_diagram)
       : null;
 
-    const specs = parsed.specs ?? [];
-    const enrichedMarkdown = ensureDetailedMarkdown(parsed.markdown, specs);
+    const fullKnownSymbols = buildKnownSymbolSet(fullMap);
+    const specs = (parsed.specs ?? []).map((item) => ({
+      key: item.key,
+      value: normalizeVerifiedExternalBackticks(
+        item.value,
+        fullKnownSymbols,
+        referenceSourceText
+      ),
+    }));
+    const enrichedMarkdown = normalizeVerifiedExternalBackticks(
+      ensureDetailedMarkdown(parsed.markdown, specs),
+      fullKnownSymbols,
+      referenceSourceText
+    );
 
     const candidateDoc: DocItem = {
       doc_id: params.docId,
@@ -255,7 +362,12 @@ export async function generateDocumentWithSelfCheck(params: {
       source_node_ids: parsed.source_node_ids,
     };
 
-    const verification = verifyDocument(candidateDoc, params.codeMap, fullMap);
+    const verification = verifyDocument(
+      candidateDoc,
+      params.codeMap,
+      fullMap,
+      referenceSourceText
+    );
     if (attempt === 0) {
       initialMermaidValid = verification.mermaidCheck.valid;
     }
@@ -335,13 +447,27 @@ export function extractReferencedCodeSymbols(
   for (const match of matches) {
     const raw = (match[1] ?? "").trim();
     if (!raw) continue;
+    if (raw.startsWith("@")) continue;
     if (raw.includes("/") || raw.includes("\\") || /\s/.test(raw)) continue;
     if (/\.(ts|tsx|js|jsx|py|cs|json|md|html|env|yml|yaml)$/i.test(raw) || raw.startsWith(".")) {
       continue;
     }
 
-    const cleaned = raw.replace(/\([^)]*\)$/, "").trim();
-    if (!cleaned || IGNORED_COMMON_IDENTIFIERS.has(cleaned)) continue;
+    // Cắt sạch phần danh sách tham số (kể cả ngoặc lồng nhau như `svc.fn(user.getId())`)
+    const parenIdx = raw.indexOf("(");
+    const cleaned = (parenIdx !== -1 ? raw.slice(0, parenIdx) : raw).trim();
+    const rootIdent = cleaned.split(".")[0];
+    if (
+      !cleaned ||
+      IGNORED_COMMON_IDENTIFIERS.has(cleaned) ||
+      (rootIdent && IGNORED_COMMON_IDENTIFIERS.has(rootIdent))
+    ) {
+      continue;
+    }
+    // Bỏ qua hằng số / enum chuẩn ALL_CAPS không có ngoặc gọi hàm (VD: Role.MEMBER, Config.GMAIL_ADMIN)
+    if (!raw.endsWith(")") && /^[A-Za-z_]\w*\.[A-Z][A-Z0-9_]+$/.test(cleaned)) {
+      continue;
+    }
 
     const matchesKnown = knownSymbols ? isKnownSymbol(cleaned, knownSymbols) : false;
     const looksLikeCallableOrQualified =
@@ -363,8 +489,18 @@ function isKnownSymbol(symbol: string, validSet: Set<string>): boolean {
   const parts = symbol.split(".");
   const first = parts[0];
   const second = parts[1];
-  if (parts.length === 2 && first && second && validSet.has(first) && validSet.has(second)) {
-    return true;
+  if (parts.length === 2 && first && second && validSet.has(second)) {
+    if (validSet.has(first)) return true;
+    // Hỗ trợ gọi qua biến instance chữ thường của class có trong code_map
+    // VD: `userDAO.findByRole` <-> `UserDAO.findByRole`, `consultationService.createConsultation` <-> `CoachConsultationService.createConsultation`
+    const firstLower = first.toLowerCase();
+    for (const known of validSet) {
+      if (known.includes(".") || known.includes("/")) continue;
+      const knownLower = known.toLowerCase();
+      if (knownLower === firstLower || (firstLower.length >= 5 && knownLower.endsWith(firstLower))) {
+        return true;
+      }
+    }
   }
   return false;
 }

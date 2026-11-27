@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import {
   buildCodeMap,
   detectProjectInfo,
+  groupFilesByBusinessFeature,
   parseSourceCode,
   scanRepositoryFiles,
 } from "../src/parser/index.js";
@@ -207,11 +208,101 @@ async function testProjectDetection(): Promise<void> {
   console.log("[PASS] Project detector:", JSON.stringify(info));
 }
 
+async function testReactHooksAndApiObject(): Promise<void> {
+  const clientFile = await parseSourceCode(
+    `async function request(path, options) {
+  return fetch(path, options);
+}
+
+export const api = {
+  createTask: (payload) => request("/tasks", { method: "POST", body: payload }),
+};
+`,
+    "src/api/client.js"
+  );
+
+  const hookFile = await parseSourceCode(
+    `import { useCallback } from "react";
+import { api } from "../api/client";
+
+export function useTasks(options) {
+  const addTask = useCallback(async (title) => {
+    const created = await api.createTask({ title });
+    return options.addToBottom ? created : created;
+  }, [options.addToBottom]);
+
+  return { addTask };
+}
+`,
+    "src/hooks/useTasks.js"
+  );
+
+  const codeMap = buildCodeMap([clientFile, hookFile]);
+  const requestFn = codeMap.find((n) => n.name === "request");
+  const createTaskFn = codeMap.find((n) => n.name === "api.createTask");
+  const addTaskFn = codeMap.find((n) => n.name === "useTasks.addTask");
+
+  assert.ok(requestFn && createTaskFn && addTaskFn, "Must extract request, api.createTask, and useTasks.addTask");
+  assert.ok(
+    createTaskFn.calls.includes(requestFn.node_id),
+    "api.createTask must resolve call to request"
+  );
+  assert.ok(
+    addTaskFn.calls.includes(createTaskFn.node_id),
+    "useTasks.addTask (wrapped in useCallback) must resolve cross-file call to api.createTask"
+  );
+
+  console.log("[PASS] React Hooks (useCallback) + exported API object methods cross-file call chain");
+}
+
+async function testFeatureGrouping(): Promise<void> {
+  const mockFiles = [
+    { file_path: "BE/controllers/AuthController.java", has_syntax_error: false, imports: [], functions: [] },
+    { file_path: "BE/services/AuthService.java", has_syntax_error: false, imports: [], functions: [] },
+    { file_path: "FE/src/context/AuthContext.jsx", has_syntax_error: false, imports: [], functions: [] },
+    { file_path: "FE/src/auth/LoginPage.jsx", has_syntax_error: false, imports: [], functions: [] },
+    { file_path: "BE/controllers/QuitPlanController.java", has_syntax_error: false, imports: [], functions: [] },
+    { file_path: "BE/services/QuitPlanService.java", has_syntax_error: false, imports: [], functions: [] },
+    { file_path: "BE/dao/QuitPlanDAO.java", has_syntax_error: false, imports: [], functions: [] },
+  ];
+
+  const mockCodeMap = [
+    {
+      node_id: "fn_login_page",
+      name: "LoginPage",
+      file_path: "FE/src/auth/LoginPage.jsx",
+      start_line: 1,
+      end_line: 20,
+      calls: ["fn_auth_ctx_login"],
+    },
+    {
+      node_id: "fn_auth_ctx_login",
+      name: "AuthContext.login",
+      file_path: "FE/src/context/AuthContext.jsx",
+      start_line: 1,
+      end_line: 20,
+      calls: [],
+    },
+  ];
+
+  const grouped = groupFilesByBusinessFeature(mockFiles, mockCodeMap, () => "other");
+  const authFiles = grouped.get("Feature: Auth")?.map((f) => f.file_path) ?? [];
+  const quitPlanFiles = grouped.get("Feature: Quit Plan")?.map((f) => f.file_path) ?? [];
+
+  assert.equal(authFiles.length, 4, "Feature: Auth must group AuthController, AuthService, AuthContext AND LoginPage (via Call Graph)");
+  assert.ok(authFiles.includes("FE/src/auth/LoginPage.jsx"), "LoginPage must attach to Feature: Auth via call edge");
+  assert.equal(quitPlanFiles.length, 3, "Feature: Quit Plan must group Controller + Service + DAO");
+
+  console.log("[PASS] Feature grouping (Call Graph + Domain Stem): Auth (4 files), Quit Plan (3 files)");
+}
+
 async function main(): Promise<void> {
   await testTypeScriptFeatures();
+  await testReactHooksAndApiObject();
   await testPythonFastApi();
   await testCSharpAspNet();
   await testGoGenericAdapter();
+  await testFeatureGrouping();
   await testProjectDetection();
   console.log("\nALL MULTI-LANGUAGE CODE_MAP TESTS PASSED!");
 }

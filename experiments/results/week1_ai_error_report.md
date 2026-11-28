@@ -1,21 +1,21 @@
 # Báo cáo Khảo sát Lỗi Sinh Tài liệu & Sơ đồ của AI — Tuần 1 (Nhóm 2.1)
 
 ## 1. Thông tin thực nghiệm khảo sát (Bản thô `v1` — Phương án A)
-- **Nguồn dữ liệu khảo sát:** `https://github.com/LeMinhSang2k5/TodoAppCloud` *(đối chiếu với `code_map` quét bằng Tree-sitter thật của nhóm)*
+- **Nguồn dữ liệu khảo sát:** `https://github.com/LeMinhSang2k5/TodoAppCloud` *(đối chiếu với `code_map` quét bằng Tree-sitter và mã nguồn gốc của dự án)*
 - **Provider / Model:** `gemini` / `gemini-flash-lite-latest`
 - **Số file gửi rời rạc:** 4 file (không cung cấp `code_map` cho AI, không bật vòng tự kiểm tra)
-- **Tổng lượng token tiêu thụ:** 6131 tokens (Prompt: 2619, Completion: 3512)
-- **Tỷ lệ sơ đồ Mermaid hợp lệ ngay lần đầu:** **100%** (4/4 sơ đồ)
-- **Tỷ lệ tên hàm nghi vấn AI tự bịa (Hallucination Rate):** **68.42%** (13/19 định danh hàm được nhắc tới)
+- **Tổng lượng token tiêu thụ:** 6504 tokens (Prompt: 2923, Completion: 3581)
+- **Tỷ lệ sơ đồ Mermaid hợp lệ ngay lần đầu:** **50%** (2/4 sơ đồ)
+- **Tỷ lệ tên hàm nghi vấn AI tự bịa (Hallucination Rate):** **0%** (0/30 định danh hàm được nhắc tới)
 
 ## 2. Bảng thống kê chi tiết từng file
 
 | STT | File khảo sát | Các hàm Tree-sitter quét được | Tên hàm ngoài `code_map` / bịa | Cú pháp Mermaid | Chi tiết lỗi ghi nhận | Kiểm tra trực quan |
 | :---: | :--- | :--- | :--- | :---: | :--- | :---: |
-| 1 | `src/hooks/useSettings.js` (98 dòng) | `useSettings` | Có (`reload`, `saveSettings`, `saveAccount`, `exportBackup`) | **Hợp lệ (Pass)** | Không lỗi | [Mở trên mermaid.live](https://mermaid.live/edit#pako:eNq1VD2P00AQ_SujLVAs-XKC0lJOCiHiToTTiSSdm731XLw6e9es14FTlIKKmoqSO50oKBAUSEhJGcT_8D9h_HGJkyhQ4cb27Myb997s7owJHSDzWIqvM1QCn0k-MTz2FdDDM6tVFl-iqf4TbqwUMuHKwvgMeAqvkAsLPR0nWqGy-2mnWl8XiVmKQ7RWqklaxvYzuxcl4lMurlEF5e8xDLTg0dBqwyfoq6roXFsEPUVDHNwSzIPHbXgR5stPEmy-uNPwCEb54l5CkC-_QSTz5fusKh6fHZ2cVDUNSi2ZdjMbkgIpuMXAqfVHFnZWoNMBazKsEoqnACNM4uvB8_4IjtMadJNCa0frtiNDzGCaL9_BDB5y3YKNgfkebFUTo5lgL5JEY03ZIZE8SaKbUYgxvqQxtpydcqofE6tevviagArpZRsduRA6U9aFSPOAQp0rHqW1MJrA3-x-0obB7-8ZiNWthF8f8sVPu2dvyqcbfxW-XTOvWW4JJFZDPqXVVmGu4xaBvjHatHzms-2K0umL7qh3uvG6YaUHzWYPlhajHIWrWxUS6R9q8u_hNLYOSVzdg2jY-F_m1GheAgWNYW0MKqdUIyB9kqx88dnCJW18eUDWIF9-lNAqHXUOcF87jsa0Y0xTOnLOoca71M9XX2KIqi42NPoNEIqz3kvMZaQo5jKgq2bmM1tY4TPPZwFe8SyyPptTTnHfDG-UYF6xC1yWJQGdufpK2g72A0m3QhWb_wGBzKm0) |
-| 2 | `src/api/client.js` (63 dòng) | `getToken`, `request`, `saveAuth`, `clearAuth`, `loadSavedAuth` | Có (`get`, `delete`) | **Hợp lệ (Pass)** | Không lỗi | [Mở trên mermaid.live](https://mermaid.live/edit#pako:eNpVkstO3DAUhl_lyFsyoapYjTRFcwkMIIHEZAFKZmElZxJrEjv4QjWMZsGKFe8AdNOqqqpuyTJPkjepc6k6eGPJ5_v___jYWxKJGMmQrDLxNUqp1ODPQg52jYNpxpBrSOrymQEtmJughkMohGo213WXMBh8gUkwr15ykHhn0FYKqlMHRKGZ4GrZeU1acBqctlbWxhdr5KDr8idkIqLZQgtJE-zxaYvPgpvqbQNxXf7hCcyRxijVEKaCa9vWwN8U6MDY6FRI9kCbuF4-a-Ven7ZCHaUwGS88OPjYnANpZ9rrvFZ3sr1GVdgygtJUGwWj0Qg-fzo63nXYicXgFlVLnwa-rN-_wX1dPgI3Wbbcgy5Fy8wDP63LXzZcWtPzxdWlHVYX0dPzljv7n3x1cdwwrlj3oWf7oef7oXY-vyFjdflkIKaaLvcEfQMXgV-_vwq4r16AVz9y8KQUEtbV9_zfHZtSjko1j0AckqPMKYvtx9iGRKeYY0iGIYlxRU2mQ7KzDDVaLDY8IkMtDTrEFDYeZ4wmkuYfD72Y2QfuznZ_ATew2fo) |
-| 3 | `src/hooks/useTasks.js` (52 dòng) | `useTasks` | Có (`reload`, `addTask`, `toggleTask`, `deleteTask`) | **Hợp lệ (Pass)** | Không lỗi | [Mở trên mermaid.live](https://mermaid.live/edit#pako:eNp9VEFr2zAU_isPX9pCi-9h6wiJt4yWrizuYdg5KJZii9pSkGXGSHLeqYcddxh0jB4LG_RS-7BDxv6H_slkyXVmk81g-1l636f3fU_yyok4Js7AWaT8fZQgIcEfhwz0NZX66zAY8WzJGWESclXdA1bVHYuhyImP8ut8dgQnJ6cwSkh0PSxksqJ5_dLpNEKS4BcbS2afbVoNWl_wNXgMHwZnqvwpQSbbMgIXzpLtg15BqvIbnR3tA74j-Rp8QeOYCG-xIJEMdD02glhVNxQESTnCs5BZfF7MY4GWSTMOwWR7m-2SoLk6nEbYlMhznUNZHOgQUhvDc5CiIMdAhOBCfx0c_MWyw1hvUJoOL18H-oZXng-uNMbt8psEI81Ptrcsgai2YF0zGZeDkSrvl8AS_dJ9kNpZ-D-LKu8kzFX5lRoWr65zH4sR0K3drGgqf0kZSnu6FyjNSRdgyHcAO0cYfjL_KidiGEnKWXAR__6uqi8U8Pax7nGiqh8RJFRVHxlY6b8-qeozi5_NhXs6xFhvCJ_HcUp0cLXEdc0ujElKJJmZNd8WbIIYTolYjTTdTY9n81TFLs9YhDCuha5Be6aXMd25fDPttacHkqaSFmcLs9ChP5o0WHdAsWtT99MURkdLY2XtpdmPx0Z-i7duGPzYO_d8r0tgKaxM45hdb1r3v7slMn3k6q6YDSAF17HZJbOWomlFj6Wdbhr0r2lbaH_aOXYyIjJEsf4NrUJH_z0yEjqD0MFkgYpUhs5G56BC8ukHFjkDc_Qca-KYIn2ws-6gh6nkwo5t_gAiAbpI) |
-| 4 | `src/hooks/useProjects.js` (46 dòng) | `useProjects` | Có (`reload`, `addProject`, `deleteProject`) | **Hợp lệ (Pass)** | Không lỗi | [Mở trên mermaid.live](https://mermaid.live/edit#pako:eNptU8Fu00AU_JUnHyhILblHApQ6bhISSETMyc5ha2_iJbY32l2DQp1DT5xQxReQClUIRMUBTvaBg-FD_Cc824Q4Vn2xvTszO2_e2wvN4S7V2trc528cjwgFZtcOAR8ZnS8EWXkwCJlixGdviWI8BGvo5elHBipPrjncAzNPPjFw8_Q7-CxP30Wzil88HUvnwYqHNFQg8_S2gN2EC4gknQj-ijpKzuDk5HFsimidp5chMNmJlId45hBF3RhO79fA4HG-fLDXPy3IoF80WE82e4he6g-97Ge4iKFrDfPklwLlZYkDLajWwc-2ASyyb7MmT89-xGBYaMGYz9EBLLNbx0MbWLwCQX1O3BrJKP2cWVOqoNhiqP0IlIjoMVAhuMC_o6Ma4awk9Kxenr5n0JkMoGeY0Frtwtkje1VOXrYNPXCqavrlQTswagsqMW1JwSWK3EHOkxsF5-idxTAoyTtX-H4YUCnJgtZ4fezvoLT4tFHTnPhyh6Sha4eNodFfvOzCeEVFOTQSLD27djB2wkEVX8V-7aChRVz3X5eriZiMp7UgYhhZWPvXAF5nWw6_P-TJ5wikwm7DHWE9s6IVRkAPFTum3t9LttoMx-s5ypI1GsOx2CmB8-cLNo1joeUJNeGx5VKfNoS7xsgwjabyxBphUx2MO736r7zEu3PFDmQxPe1YC6gICHPxJl7YGo5yQG2tbWsunZPIV7a2QQyJFJ-uQ0drlxOlVTV2GcHIg8NFw2WKi2pt8xd3xWBI) |
+| 1 | `src/hooks/useSettings.js` (98 dòng) | `useSettings`, `useSettings.reload`, `useSettings.saveSettings`, `useSettings.saveAccount`, `useSettings.exportBackup` | Không (0) | **Hợp lệ (Pass)** | Không lỗi | [Mở trên mermaid.live](https://mermaid.live/edit#pako:eNp9VD1v2zAQ_SsHDoENOA7abgISwHGCxo2TGJEMdPBCUxeLtUSq0slIYHjo1KFT5w5tEBToErRbAHlM0f_Bf1JQir-iJNpIvffu-N6RUya0j8xhKX7MUAk8kHyU8GigAAB4Rlpl0RCTch3zhKSQMVcE_Q7wFM6RC4K2jmKtUFEVdqT12AKzFF0kkmqUFntVZKtXKO5zMUbl22UV03UtpKsFD13SCR8h7MDB2clAldhTTQh6ggn0O42ijgOvmnAcmPl3CWTyaw1b4Jn8RoJv5r8hlGb-OSvJ_c723l7JWeu2JtNWRgEqkoIT-vUSbHFL-IZ-SpwQIpPfCfj71cy_qKCkPHgaEjyShN1doCTDErCm3up1HHh76MFO-tDNCsIFyYmttDTKfq1eZ3vZlpeY_AYmZv4JprBQaNjDJTBbcXx8WmvjiBEmI2yHEhUtnanDlpVdrSvcrusAj-PwygswwhPtY60OtbbJb2NQgclvCUaSa_BtDKr-TO0UqSWEzhTVpqB4hA3AiMsQZg8MVP5LE_C6Cd1_fzIQ9z-kjSS_I6i5fIKwaL1emYCUT1YjoPCSHkHXE-q1vPbRKqM1sxc2Vw1-LqglMzLzb7LEPhXQhkEbhpbztzkwL8TxknFvmvA-M_lPggsZIgy5GGdxxSq8jHVC-8XP2hP2FAPMY7k0aKdkQG18_ysCT49xEf1zrhTl90M9rBzHK-5c_7wLevgBBcEWHN_figACbfJrsnfyRpb8d-7ZKWuwCJOIS585bDpgZI0YMGfAfLzgWUgDNmMNZh8-90oJ5th72WBZ7HNavI2bm4e-JJ2Ue7P_Wf7XqQ) |
+| 2 | `src/api/client.js` (63 dòng) | `getToken`, `request`, `api.get`, `api.post`, `api.patch`, `api.delete`, `saveAuth`, `clearAuth`, `loadSavedAuth` | Không (0) | **Lỗi cú pháp (Fail)** | Dòng 5: Khai báo participant chứa dấu () nhưng chưa bọc ngoặc kép: "participant Req as request()". | [Mở trên mermaid.live](https://mermaid.live/edit#pako:eNp9lDGP0zAUx7_KwwNKRXsgxBRxkXrlBMdQqrYDQxc3fk1MUzu1Xw6V0w1MNzGzcjAxnRBISM1wQz9Jvgly40gtrW6J7Jf_-7_fs598xWItkIXM4rJAFeMryRPDFxMFAMAL0qpYTNH4fUzaQC-TqAi4bVY9LbAW5NyQjGXOFUF3cOE0PJegpx8wpkPJEJdOYlxtS0HrUDEibXiCTpXpmGd-f0SI5hKN053xeI5K-MhE1doatRNF3cFFCK-r8ot0aCcJUpBzSluQ6mr9N94Gc23raBumWqw8V3dw0YmiIS6b_Ia7VuqcpFbWi4e47ESRxw0hQRrrOaqmR_-j0xiOTbX-AZdV-RnI6SBQ1fq-gHjz22fU374mBO063aa933xfgajKXyqBFLlAY19OzdMo6GlFrt_xKsc2dAtKtZGfuCPc8_OY26MKYYYUp8FZd3QOT-BYV7XwGPWb8XgAQ7S5VhZ3K_DM3SKnwsLp6Sk8f_YCgr4GD-h9G5TmfnaMVZFltQgzi40VpZtvKoV480clEDwyaE_0fFtgxjOL_9l63AE3FuHt6F0fzB7pA-VFVd5BJqvypoBAcOKtQ5isKr_KfQoyxYMQdcpjSDa3CtCYE7u1Oo7T3_xcgEp0tb6VLvMGAkqN_gjnxmjTACmxe-xuWDtRVI9909G8Wt8TLAu39uM-rdZ3VOOwNlugWXApWMiuJoxSXOCEhRMmcMaLjCbsmrWZexRGKxWz0DXZZkUuODXvxn7wXEjSpo5d_wNwWIw0) |
+| 3 | `src/hooks/useTasks.js` (52 dòng) | `useTasks`, `useTasks.reload`, `useTasks.addTask`, `useTasks.toggleTask`, `useTasks.updateTask`, `useTasks.deleteTask` | Không (0) | **Lỗi cú pháp (Fail)** | Dòng 16: Tiêu đề subgraph chứa dấu ngoặc tròn () nhưng chưa bọc trong ngoặc kép "..." ("subgraph Action Flow (ví dụ: addTask)"). | [Mở trên mermaid.live](https://mermaid.live/edit#pako:eNp9kr9u2zAQxl_lwCFpAbvZDbiF_8d14gS1MhRSBkY8S0Ql0qAoB62RIQ9QIJ26OjDSoWi3TvKovAjfpNAlgV2nLUfy-93d9_EWLNQCWYNNE30ZxtxY8LqBAgDI8ovI8FkMQyWt5In8xK3U6uGxOi2_o9OZVqgsRG79WUKeocezD9k51Ouvob2QWSu3MSorQ25RvLnawG2o12GsSdjxR3H5S0WQlMsUovIHHIBnXLGCuVtfQ2a5RTBu_VVF5zsV3mNGJbp-nmFvOsXwaRaDiebiUY9KBGrH1jsSQD_Rl5uiXarW8ydooXqWKoImWJNjDdAYbaAJ-_tbU_QI6Put0yEMeh4cWApgI-hXY3pxuVQxhOSyAgbUgbTQBMEtf4644s7ChStuJSGHhDwNgca8SjHLeIRb5AD24JDUwx0LU55k-J80WmH1uZQGvJiXP0G49V0DuBDVj77ctHjrDyjfxxfy0K3mp7YjCuL0ZPKXJEakOFpUpG5ra3W6vRFH5NrkSLJj34vL7ymVh3m51NA5c-ubIaSuWKkIdosT3a9MEj5-ht_fuOLb2b_wY9iDMZEn_tbqEX7_pVyBdcWt3uTHaixFk3IpWIMtAmZjTDFgjYAJnPI8sQG7YjXGc6snH1XIGrRCLJ8JbrEreWR4-udlT0irzcPd1W9YfTIK) |
+| 4 | `src/hooks/useProjects.js` (46 dòng) | `useProjects`, `useProjects.reload`, `useProjects.addProject`, `useProjects.updateProject`, `useProjects.deleteProject` | Không (0) | **Hợp lệ (Pass)** | Không lỗi | [Mở trên mermaid.live](https://mermaid.live/edit#pako:eNpdkL1u2zAQgF_lwCU2ILe7AKdwLNlxswS1M0keWPIkqpFIgzyhKAw_Qt4hHjIGyJAsypBBgN9Db1KYsoGm0-EO33d_WyaMRBayrDS_heKWYBWlGgBgMkimptoYjZog794fCqgd3lrzCwW59RBGo0u42hZuUpNCTYXghPLbrrevYDSCGS8dem46SG665oOAVNuIAO5V-6rzU9vJ7WI9_Edb2bq3oqR2GGcZCoL79lkoUKZr9gQWS8Plunciz8bJEgmO5ULnMAayNQaA1hoLY7i4OMGxh2fJ_Dw5hHm8gq-b8109NvN7qPZRKxB-1aM29zPOKIzBotsY7RAkJ_5Z7Zongp9dsy-8eu3V8zpo7ZcKneM5nqy5pxb_HZEdH3girnuiTxY--T5Ill3zpsG1jzoHOrwc9sfY7gVMf9xFIXApA6g3khMGILFEwvWQBaxCW_FCspBtU0YKK0xZmDKJGa9LStmOBYzXZJZ_tGCh_yXr20QFzy2vPhdjWZCxfW33F6Tbyow) |
 
 ## 3. Mã sơ đồ Mermaid gốc của từng file (Copy dán vào mermaid.live hoặc bấm Ctrl+Shift+V xem trực tiếp)
 
@@ -26,108 +26,128 @@ sequenceDiagram
     autonumber
     participant UI as React Component
     participant Hook as useSettings Hook
-    participant API as Backend API / LocalStorage
+    participant API as Backend API
+    participant LS as LocalStorage / DOM
 
     Note over UI, Hook: 1. Khởi tạo & Tải dữ liệu
     UI->>Hook: useSettings(isAuthenticated)
+    Hook->>Hook: Khởi tạo state mặc định
+    
     alt isAuthenticated == true
         Hook->>API: GET /settings
+        activate API
         API-->>Hook: Trả về { settings, user }
-        Hook->>Hook: mergeClientSettings() & applyThemeMode()
-        Hook-->>UI: Cập nhật settings, account, loading=false
+        deactivate API
+        Hook->>Hook: mergeClientSettings() & setSettings()
+        Hook->>LS: applyThemeMode() (Cập nhật giao diện)
+        Hook->>Hook: setAccount({ name, email })
     end
 
-    Note over UI, Hook: 2. Lưu cài đặt
+    Note over UI, Hook: 2. Lưu cài đặt (Save Settings)
     UI->>Hook: saveSettings(nextSettings)
-    Hook->>Hook: setSaving(true), setError("")
-    Hook->>API: PATCH /settings { settings: nextSettings }
-    alt Thành công
-        API-->>Hook: Trả về dữ liệu đã cập nhật
-        Hook->>Hook: mergeClientSettings() & applyThemeMode()
-        Hook-->>UI: Trả về merged settings, setSaving(false)
-    else Thất bại
-        API-->>Hook: Lỗi (Error)
-        Hook->>Hook: setError(err.message), setSaving(false)
-        Hook-->>UI: Ném lỗi (throw err)
-    end
+    Hook->>API: PATCH /settings { settings }
+    activate API
+    API-->>Hook: Trả về settings mới
+    deactivate API
+    Hook->>Hook: Cập nhật state settings
+    Hook->>LS: applyThemeMode()
+
+    Note over UI, Hook: 3. Xuất file backup
+    UI->>Hook: exportBackup()
+    Hook->>API: GET /api/settings/export (kèm Token)
+    API-->>Hook: Trả về file Blob
+    Hook->>LS: Tạo URL object & Kích hoạt tải file JSON
 ```
 
-### Sơ đồ 2 — `src/api/client.js` (Hợp lệ)
+### Sơ đồ 2 — `src/api/client.js` (Lỗi cú pháp)
 
 ```mermaid
-flowchart TD
-    A[Client gọi api.get / post / ...] --> B[Hàm request path, options]
-    B --> C[Gọi getToken từ localStorage]
-    C --> D[Xây dựng Headers: Content-Type, Authorization]
-    D --> E[Gọi fetch BASE + path, options, headers]
-    E --> F{Response status === 204?}
-    F -- Yes --> G[Trả về null]
-    F -- No --> H[Thử parse JSON response]
-    H --> I{Response OK? res.ok}
-    I -- Yes --> J[Trả về dữ liệu data]
-    I -- No --> K[Tạo và ném Error kèm status và message]
-```
+sequenceDiagram
+    autonumber
+    actor Client as Client Code
+    participant API as api object
+    participant Req as request()
+    participant Storage as localStorage
+    participant Server as Backend Server
 
-### Sơ đồ 3 — `src/hooks/useTasks.js` (Hợp lệ)
-
-```mermaid
-flowchart TD
-    Start([Component sử dụng useTasks]) --> CheckAuth{isAuthenticated?}
+    Client->>API: Gọi api.get(path) hoặc api.post(path, body)
+    API->>Req: Gọi request(path, options)
+    Req->>Storage: getToken()
+    Storage-->>Req: Trả về token (nếu có)
     
-    CheckAuth -->|No| End([Kết thúc / Không tải])
-    CheckAuth -->|Yes| TriggerEffect[useEffect gọi reload]
+    Note over Req: Xây dựng headers<br/>(Content-Type, Authorization)
+    
+    Req->>Server: fetch(BASE + path, options)
+    Server-->>Req: Trả về HTTP Response
+    
+    alt Status === 204 (No Content)
+        Req-->>API: Trả về null
+    else Status thành công (!res.ok === false)
+        Req->>Req: Parse JSON response
+        Req-->>API: Trả về dữ liệu (data)
+    else Status lỗi (!res.ok === true)
+        Req->>Req: Parse lỗi & gán err.status
+        Req-->>API: Ném ngoại lệ (throw Error)
+    end
+    
+    API-->>Client: Trả kết quả hoặc bắt lỗi
+```
 
-    subgraph reload [Hàm reload]
-        TriggerEffect --> SetLoading[Set loading = true, error = '']
-        SetLoading --> CallAPI[API GET /tasks]
-        CallAPI -->|Thành công| SetTasks[Cập nhật state tasks]
-        CallAPI -->|Thất bại| SetError[Cập nhật state error]
-        SetTasks --> Final[Set loading = false]
-        SetError --> Final
+### Sơ đồ 3 — `src/hooks/useTasks.js` (Lỗi cú pháp)
+
+```mermaid
+flowchart TD
+    subgraph Initialization
+        A[Component gọi useTasks] --> B{isAuthenticated?}
+        B -- No --> C[Không làm gì / Trả về state rỗng]
+        B -- Yes --> D[useEffect gọi reload]
     end
 
-    UserAction[Người dùng thực hiện hành động<br/>Add / Toggle / Update / Delete] --> RunHandler{Chọn hành động}
+    subgraph Reload Flow
+        D --> E[Set loading = true, error = '']
+        E --> F[API GET /tasks]
+        F -- Thành công --> G[Set tasks = data]
+        F -- Thất bại --> H[Set error = err.message]
+        G & H --> I[Set loading = false]
+    end
 
-    RunHandler -->|addTask| APIAdd[API POST /tasks]
-    RunHandler -->|toggleTask| APIToggle[API PATCH /tasks/:id/toggle]
-    RunHandler -->|updateTask| APIUpdate[API PATCH /tasks/:id]
-    RunHandler -->|deleteTask| APIDelete[API DELETE /tasks/:id]
-
-    APIAdd --> UpdateState[Cập nhật mảng tasks trong state]
-    APIToggle --> UpdateState
-    APIUpdate --> UpdateState
-    APIDelete --> UpdateState
+    subgraph Action Flow (ví dụ: addTask)
+        J[Gọi addTask taskData] --> K[API POST /tasks]
+        K --> L{addToBottom?}
+        L -- True --> M[Thêm task vào CUỐI mảng tasks]
+        L -- False --> N[Thêm task vào ĐẦU mảng tasks]
+        M & N --> O[Trả về task đã tạo]
+    end
 ```
 
 ### Sơ đồ 4 — `src/hooks/useProjects.js` (Hợp lệ)
 
 ```mermaid
 flowchart TD
-    subgraph Initialization [Khởi tạo & Tải dữ liệu]
-        A[Component sử dụng useProjects] -->|Truyền isAuthenticated| B(useProjects hook)
-        B --> C{isAuthenticated?}
-        C -->|Không| D[Kết thúc / Không làm gì]
-        C -->|Có| E[useEffect kích hoạt reload]
-        E --> F[Set loading = true, error = '']
-        F --> G[Gọi API GET /projects]
-        G -->|Thành công| H[Set projects = response data]
-        G -->|Thất bại| I[Set error = err.message]
-        H & I --> J[Set loading = false]
-    end
-
-    subgraph CRUD Operations [Các thao tác CRUD]
-        K[addProject] -->|POST /projects| L[Thêm vào đầu state projects]
-        M[updateProject] -->|PATCH /projects/:id| N[Thay thế project cũ trong state]
-        O[deleteProject] -->|DELETE /projects/:id| P[Lọc bỏ project khỏi state]
-    end
+    A([Component gọi useProjects]) --> B{isAuthenticated?}
+    B -- False --> C([Kết thúc, không gọi API])
+    B -- True --> D[useEffect kích hoạt reload]
+    D --> E[Set loading = true, error = '']
+    E --> F[Gọi API: GET /projects]
+    F -- Thành công --> G[Set projects = response data]
+    F -- Thất bại --> H[Set error = err.message]
+    G --> I[Set loading = false]
+    H --> I
+    I --> J([Sẵn sàng tương tác CRUD: add, update, delete])
 ```
 
-## 4. Nhận xét & Định hướng thiết kế AI Harness (Tuần 2–5)
-1. **Nhóm lỗi cú pháp Mermaid phổ biến khi chạy bản thô `v1`:**
-   - AI thường đặt dấu ngoặc tròn `()` trực tiếp bên trong nhãn `[]`, tiêu đề `subgraph` hoặc alias `participant` mà quên bọc trong dấu ngoặc kép `"..."`, làm trình biên dịch Mermaid gãy cú pháp.
-   - AI hay nhầm lẫn cú pháp mũi tên giữa `sequenceDiagram` (`A --> B: nhãn`) và `flowchart TD` (`A -->|"nhãn"| B`).
-2. **Nhóm lỗi ảo giác (Hallucination) khi gửi từng file rời rạc:**
-   - Khi thiếu `code_map` liên kết toàn cục, AI tự đoán thêm tên hàm phụ trợ ở các module khác không tồn tại trong `code_map`.
-3. **Giải pháp khắc phục trong AI Harness (`v2 -> v3`):**
-   - Khóa đầu ra bằng `AIDocumentOutputSchema` (Zod) và truyền danh sách `code_map` từ Tree-sitter vào `system_prompt_v2.txt`.
-   - Sử dụng `verifier.ts` + `kiem_tra_cu_phap_so_do` tự động đối chiếu tên hàm với `code_map` và gửi thông báo lỗi cú pháp Mermaid bắt AI tự sửa (tối đa 3 lần).
+## 4. Nhận xét, Giới hạn thực tế & Định hướng AI Harness (Tuần 2–5)
+1. **Kết quả kiểm tra cú pháp Mermaid:**
+   - Có **2/4 sơ đồ** mắc lỗi cú pháp ngay lần đầu:
+     - `src/api/client.js`: Dòng 5: Khai báo participant chứa dấu () nhưng chưa bọc ngoặc kép: "participant Req as request()".
+     - `src/hooks/useTasks.js`: Dòng 16: Tiêu đề subgraph chứa dấu ngoặc tròn () nhưng chưa bọc trong ngoặc kép "..." ("subgraph Action Flow (ví dụ: addTask)").
+   - *Giới hạn hiện tại:* Hàm `kiem_tra_cu_phap_so_do` trong `src/ai_harness/tools/checkMermaid.ts` đang kiểm tra cú pháp bằng **Regex + Stack thủ công** chứ chưa dùng parser Mermaid chính thức (`mermaid.parse()`), nên vẫn có khả năng bỏ sót một số lỗi cú pháp hiếm.
+2. **Phát hiện thực nghiệm về đối chiếu tên hàm & False Positive (PR #6):**
+   - Khi bật đối chiếu đầy đủ với `code_map` nâng cấp và mã nguồn gốc `file.content` (sau PR #6), tỷ lệ nghi vấn bịa đặt giảm còn **0% (0/30)** — loại bỏ hoàn toàn tình trạng báo động giả (false positive 68.42% ở bản sơ khai với hàm con `useCallback` và method của `export const api`).
+   - *Bài học từ Tuần 1:* Ở bản khảo sát sơ khai (trước PR #6), bộ đếm từng báo 68.42% định danh ngoài `code_map` do Tree-sitter đời đầu chưa tách hàm `useCallback` và method của object `api`. Từ phát hiện đó, nhóm đã nâng cấp parser (`src/parser/languages/typescript.ts`) và truyền mã nguồn gốc vào `verifyDocument` (`appearsInSourceCode` + `normalizeVerifiedExternalBackticks`) để loại bỏ báo nhầm.
+3. **Kiến trúc AI Harness (`v2 -> v3`) & Hướng cải tiến Tuần 2:**
+   - Đã khóa cấu trúc JSON đầu ra qua `AIDocumentOutputSchema` (`specs: [{ key, value }]`, `markdown`, `mermaid_diagram`, `source_node_ids`), kết hợp 3 công cụ (`doc_ma_nguon_ham`, `xem_ham_lien_quan`, `kiem_tra_cu_phap_so_do`) và vòng tự sửa tối đa 3 lần (`maxRetries = 3`).
+   - *Các giới hạn cần xử lý tiếp ở Tuần 2:*
+     - `verifyDocument` mới kiểm tra tĩnh các định danh bọc backtick; chưa tự kiểm tra được sai sót về logic nghiệp vụ (ví dụ mô tả ngược điều kiện boolean) hoặc hàm bịa không bọc backtick.
+     - Đồng bộ ID nút trong `mermaid_diagram` trùng khớp với `node_id` trong `code_map` để hỗ trợ Nhóm 2.2 bấm vào sơ đồ nhảy tới đúng dòng code.
+     - Bổ sung kiểm tra chặn Path Traversal trong `src/ai_harness/tools/readSource.ts` và cơ chế retry `429` cho nhánh `generateOpenAI` (OpenRouter).

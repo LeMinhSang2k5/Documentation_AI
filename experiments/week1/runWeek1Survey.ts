@@ -90,7 +90,9 @@ async function main(): Promise<void> {
         mermaid_diagram: mermaidCode,
         source_node_ids: fileNodes.map((n) => n.node_id),
       },
-      codeMap
+      codeMap,
+      codeMap,
+      file.content
     );
 
     metrics.recordDocumentCheck({
@@ -115,7 +117,27 @@ async function main(): Promise<void> {
     });
   }
 
+  const finalProviderInfo = llm.getProviderInfo();
   const summary = metrics.summarize();
+  const mermaidFailRecords = records.filter((r) => !r.mermaidValid);
+  const mermaidSectionNotes =
+    summary.diagramsValidBeforeRetry === summary.diagramsChecked
+      ? [
+          `   - Trên ${summary.diagramsChecked} file mẫu ngắn của dự án, lần chạy với \`${finalProviderInfo.model}\` đạt **${summary.diagramsValidBeforeRetry}/${summary.diagramsChecked} sơ đồ hợp lệ** ngay lần đầu theo \`kiem_tra_cu_phap_so_do\`.`,
+          '   - Dù vậy, với các file/luồng phức tạp hơn ở bản thô `v1`, AI vẫn có rủi ro đặt dấu ngoặc tròn `()` trong nhãn `[...]` chưa bọc `"..."` hoặc nhầm cú pháp mũi tên giữa `sequenceDiagram` và `flowchart` (đã tái hiện và kiểm chứng trong `tests/ai-harness.test.ts`).',
+        ]
+      : [
+          `   - Có **${mermaidFailRecords.length}/${summary.diagramsChecked} sơ đồ** mắc lỗi cú pháp ngay lần đầu:`,
+          ...mermaidFailRecords.map(
+            (r) => `     - \`${r.filePath}\`: ${r.mermaidErrors.join("; ")}`
+          ),
+        ];
+
+  const hallucinationSummaryNote =
+    summary.totalHallucinatedSymbols === 0
+      ? `   - Khi bật đối chiếu đầy đủ với \`code_map\` nâng cấp và mã nguồn gốc \`file.content\` (sau PR #6), tỷ lệ nghi vấn bịa đặt giảm còn **${summary.hallucinationRatePercent}% (${summary.totalHallucinatedSymbols}/${summary.totalReferencedSymbols})** — loại bỏ hoàn toàn tình trạng báo động giả (false positive 68.42% ở bản sơ khai với hàm con \`useCallback\` và method của \`export const api\`).`
+      : `   - Sau khi đối chiếu với \`code_map\` và mã nguồn gốc \`file.content\`, vẫn còn **${summary.totalHallucinatedSymbols}/${summary.totalReferencedSymbols} định danh (${summary.hallucinationRatePercent}%)** nằm ngoài mã nguồn thật khi chạy bản thô \`v1\` (gửi file rời rạc không có \`code_map\`/tools).`;
+
   const resultsDir = path.join(PROJECT_ROOT, "experiments", "results");
   await fs.mkdir(resultsDir, { recursive: true });
   const reportPath = path.join(resultsDir, "week1_ai_error_report.md");
@@ -141,12 +163,11 @@ async function main(): Promise<void> {
     )
     .join("\n\n");
 
-  const finalProviderInfo = llm.getProviderInfo();
   const reportMarkdown = [
     "# Báo cáo Khảo sát Lỗi Sinh Tài liệu & Sơ đồ của AI — Tuần 1 (Nhóm 2.1)",
     "",
     "## 1. Thông tin thực nghiệm khảo sát (Bản thô `v1` — Phương án A)",
-    `- **Nguồn dữ liệu khảo sát:** \`${repoLabel}\` *(đối chiếu với \`code_map\` quét bằng Tree-sitter thật của nhóm)*`,
+    `- **Nguồn dữ liệu khảo sát:** \`${repoLabel}\` *(đối chiếu với \`code_map\` quét bằng Tree-sitter và mã nguồn gốc của dự án)*`,
     `- **Provider / Model:** \`${finalProviderInfo.provider}\` / \`${finalProviderInfo.model}\``,
     `- **Số file gửi rời rạc:** ${records.length} file (không cung cấp \`code_map\` cho AI, không bật vòng tự kiểm tra)`,
     `- **Tổng lượng token tiêu thụ:** ${summary.totalTokens} tokens (Prompt: ${summary.promptTokens}, Completion: ${summary.completionTokens})`,
@@ -163,15 +184,19 @@ async function main(): Promise<void> {
     "",
     mermaidSections,
     "",
-    "## 4. Nhận xét & Định hướng thiết kế AI Harness (Tuần 2–5)",
-    "1. **Nhóm lỗi cú pháp Mermaid phổ biến khi chạy bản thô `v1`:**",
-    '   - AI thường đặt dấu ngoặc tròn `()` trực tiếp bên trong nhãn `[]`, tiêu đề `subgraph` hoặc alias `participant` mà quên bọc trong dấu ngoặc kép `"..."`, làm trình biên dịch Mermaid gãy cú pháp.',
-    '   - AI hay nhầm lẫn cú pháp mũi tên giữa `sequenceDiagram` (`A --> B: nhãn`) và `flowchart TD` (`A -->|"nhãn"| B`).',
-    "2. **Nhóm lỗi ảo giác (Hallucination) khi gửi từng file rời rạc:**",
-    "   - Khi thiếu `code_map` liên kết toàn cục, AI tự đoán thêm tên hàm phụ trợ ở các module khác không tồn tại trong `code_map`.",
-    "3. **Giải pháp khắc phục trong AI Harness (`v2 -> v3`):**",
-    "   - Khóa đầu ra bằng `AIDocumentOutputSchema` (Zod) và truyền danh sách `code_map` từ Tree-sitter vào `system_prompt_v2.txt`.",
-    "   - Sử dụng `verifier.ts` + `kiem_tra_cu_phap_so_do` tự động đối chiếu tên hàm với `code_map` và gửi thông báo lỗi cú pháp Mermaid bắt AI tự sửa (tối đa 3 lần).",
+    "## 4. Nhận xét, Giới hạn thực tế & Định hướng AI Harness (Tuần 2–5)",
+    "1. **Kết quả kiểm tra cú pháp Mermaid:**",
+    ...mermaidSectionNotes,
+    "   - *Giới hạn hiện tại:* Hàm `kiem_tra_cu_phap_so_do` trong `src/ai_harness/tools/checkMermaid.ts` đang kiểm tra cú pháp bằng **Regex + Stack thủ công** chứ chưa dùng parser Mermaid chính thức (`mermaid.parse()`), nên vẫn có khả năng bỏ sót một số lỗi cú pháp hiếm.",
+    "2. **Phát hiện thực nghiệm về đối chiếu tên hàm & False Positive (PR #6):**",
+    hallucinationSummaryNote,
+    "   - *Bài học từ Tuần 1:* Ở bản khảo sát sơ khai (trước PR #6), bộ đếm từng báo 68.42% định danh ngoài `code_map` do Tree-sitter đời đầu chưa tách hàm `useCallback` và method của object `api`. Từ phát hiện đó, nhóm đã nâng cấp parser (`src/parser/languages/typescript.ts`) và truyền mã nguồn gốc vào `verifyDocument` (`appearsInSourceCode` + `normalizeVerifiedExternalBackticks`) để loại bỏ báo nhầm.",
+    "3. **Kiến trúc AI Harness (`v2 -> v3`) & Hướng cải tiến Tuần 2:**",
+    "   - Đã khóa cấu trúc JSON đầu ra qua `AIDocumentOutputSchema` (`specs: [{ key, value }]`, `markdown`, `mermaid_diagram`, `source_node_ids`), kết hợp 3 công cụ (`doc_ma_nguon_ham`, `xem_ham_lien_quan`, `kiem_tra_cu_phap_so_do`) và vòng tự sửa tối đa 3 lần (`maxRetries = 3`).",
+    "   - *Các giới hạn cần xử lý tiếp ở Tuần 2:*",
+    "     - `verifyDocument` mới kiểm tra tĩnh các định danh bọc backtick; chưa tự kiểm tra được sai sót về logic nghiệp vụ (ví dụ mô tả ngược điều kiện boolean) hoặc hàm bịa không bọc backtick.",
+    "     - Đồng bộ ID nút trong `mermaid_diagram` trùng khớp với `node_id` trong `code_map` để hỗ trợ Nhóm 2.2 bấm vào sơ đồ nhảy tới đúng dòng code.",
+    "     - Bổ sung kiểm tra chặn Path Traversal trong `src/ai_harness/tools/readSource.ts` và cơ chế retry `429` cho nhánh `generateOpenAI` (OpenRouter).",
     "",
   ].join("\n");
 
